@@ -1,0 +1,36 @@
+{
+  "name": "prospect-engine",
+  "version": "1.0.0",
+  "description": "BDA prospect discovery and crawl engine",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "api": "node src/bin/api.js",
+    "worker": "node src/bin/worker.js",
+    "migrate": "node src/storage/migrate.js",
+    "import:legacy": "node src/storage/importLegacy.js",
+    "test:parse": "node test/parse.test.js",
+    "test:company": "node test/companyExtraction.test.js",
+    "test:contact": "node test/contactExtraction.test.js",
+    "test:github": "node test/githubEnrichment.test.js",
+    "test:mca": "node test/mcaEnrichment.test.js",
+    "test:dedup": "node test/crossSourceDedupe.test.js",
+    "test:discovery": "node test/discovery.test.js",
+    "test:relevance": "node test/relevance.test.js",
+    "test:health": "node test/health.test.js",
+    "test:api": "node test/api.test.js"
+  },
+  "dependencies": {
+    "@google/genai": "^2.23.0",
+    "bullmq": "^5.34.0",
+    "cheerio": "^1.2.0",
+    "crawlee": "^3.18.1",
+    "dotenv": "^18.0.1",
+    "ioredis": "^5.4.1",
+    "openai": "^7.23.0",
+    "pg": "^8.23.0",
+    "tldts": "^7.4.13",
+    "zod": "^4.6.5"
+  }
+}

@@ -1,0 +1,10 @@
+node_modules
+.git
+.commandcode
+output
+storage
+test
+*.log
+.env
+.env.*
+npm-debug.log*
