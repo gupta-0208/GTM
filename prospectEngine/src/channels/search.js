@@ -64,6 +64,10 @@ const searxngBackend = {
       "general"
     );
     endpoint.searchParams.set(
+      "engines",
+      "bing"
+    );
+    endpoint.searchParams.set(
       "pageno",
       String(page)
     );

@@ -1,8 +1,7 @@
 import {
   generateSearchPlan,
+  generateSupplementaryQueries,
 } from "./queryGenerator.js";
-
-import { LINKASSIST_ICP } from "../icp/linkassist.js";
 
 import searxngSource from "../sources/searxng/index.js";
 
@@ -26,24 +25,84 @@ import {
   rankCandidates,
 } from "../relevance/companyRelevance.js";
 
-// Relevance runs through OpenAI when enabled.
-// If relevance is disabled or the OpenAI key is missing,
-// use the disabled provider so ranking fails closed.
+// How many approved targets to aim for before stopping early.
+const DEFAULT_TARGET_COUNT = 10;
+
 function createRelevanceProvider() {
-  if (!config.relevanceEnabled || !config.openaiEnabled) {
+  if (
+    !config.relevanceEnabled ||
+    !config.openaiEnabled
+  ) {
     return createDisabledProvider();
   }
 
-  if (!config.openaiApiKey) {
+  if (
+    !config.openaiApiKey
+  ) {
     return createDisabledProvider();
   }
 
-  return createOpenaiProvider(config);
+  return createOpenaiProvider(
+    config,
+  );
+}
+
+//
+// Run one search round: fetch candidates from SearXNG for the given queries,
+// then classify them through the relevance gate.
+//
+async function runSearchRound({
+  userQuery,
+  searchPlan,
+  queries,
+  provider,
+  roundLabel,
+}) {
+  console.log("");
+  console.log(`${roundLabel} QUERIES (${queries.length}):`);
+  queries.forEach((q, i) => console.log(`  ${i + 1}. ${q}`));
+
+  const rawTargets =
+    await searxngSource.discover(
+      searchPlan,
+      {
+        generatedQueries: queries,
+      },
+    );
+
+  console.log("");
+  console.log(`${roundLabel} raw candidates: ${rawTargets.length}`);
+
+  if (!rawTargets.length) {
+    return {
+      rawTargets: [],
+      ranked: {
+        approved: [],
+        rejected: [],
+        review: [],
+        relevanceStatus: "none",
+        provider: "disabled",
+        model: null,
+        decisions: [],
+      },
+    };
+  }
+
+  const ranked =
+    await rankCandidates({
+      userQuery,
+      searchPlan,
+      candidates: rawTargets,
+      provider,
+    });
+
+  return { rawTargets, ranked };
 }
 
 export async function discover(
   userQuery,
-  icp = LINKASSIST_ICP,
+  icp = null,
+  targetCount = DEFAULT_TARGET_COUNT,
 ) {
   console.log("");
   console.log(
@@ -68,7 +127,7 @@ export async function discover(
 
   console.log("");
   console.log(
-    "GENERATED AI SEARCH QUERIES:",
+    "GENERATED SEARCH QUERIES:",
   );
 
   searchPlan.search_queries.forEach(
@@ -79,49 +138,134 @@ export async function discover(
     },
   );
 
-  const rawTargets =
-    await searxngSource.discover(
-      searchPlan,
-      {
-        generatedQueries:
-          searchPlan.search_queries,
-      },
-    );
-
-  console.log("");
-  console.log(
-    `Raw candidates from SearXNG: ${rawTargets.length}`,
-  );
-
   const provider =
     createRelevanceProvider();
 
-  const ranked =
-    await rankCandidates({
+  // ────────────────────────────────────────────────────────────────────────
+  // ROUND 1 — Primary queries
+  // ────────────────────────────────────────────────────────────────────────
+  const round1 =
+    await runSearchRound({
       userQuery,
       searchPlan,
-      candidates: rawTargets,
+      queries: searchPlan.search_queries,
       provider,
+      roundLabel: "ROUND 1",
     });
 
-  // Only relevance-approved candidates are allowed into the crawl queue.
-  const targets = ranked.approved;
+  const allRawTargets = [
+    ...round1.rawTargets,
+  ];
 
+  let allApproved = [
+    ...round1.ranked.approved,
+  ];
+
+  let allRejected = [
+    ...round1.ranked.rejected,
+  ];
+
+  let allReview = [
+    ...round1.ranked.review,
+  ];
+
+  const queriesUsed = [
+    ...searchPlan.search_queries,
+  ];
+
+  // ────────────────────────────────────────────────────────────────────────
+  // ROUND 2 — Supplementary queries (only if we still need more targets)
+  // ────────────────────────────────────────────────────────────────────────
+  if (allApproved.length < targetCount) {
+    console.log("");
+    console.log(
+      `ROUND 1 approved ${allApproved.length}/${targetCount} targets. ` +
+      `Running supplementary search round...`,
+    );
+
+    const supplementaryQueries =
+      generateSupplementaryQueries(userQuery, icp);
+
+    // De-duplicate against already-used queries.
+    const usedSet = new Set(queriesUsed);
+    const freshSupplementary =
+      supplementaryQueries.filter((q) => !usedSet.has(q));
+
+    if (freshSupplementary.length > 0) {
+      const round2 =
+        await runSearchRound({
+          userQuery,
+          searchPlan,
+          queries: freshSupplementary,
+          provider,
+          roundLabel: "ROUND 2",
+        });
+
+      // Merge — avoid duplicate domains already approved in Round 1.
+      const approvedDomains =
+        new Set(allApproved.map((t) => t.domain));
+
+      const newApproved =
+        round2.ranked.approved.filter(
+          (t) => !approvedDomains.has(t.domain),
+        );
+
+      allRawTargets.push(...round2.rawTargets);
+      allApproved.push(...newApproved);
+      allRejected.push(...round2.ranked.rejected);
+      allReview.push(...round2.ranked.review);
+      queriesUsed.push(...freshSupplementary);
+    } else {
+      console.log(
+        "No additional supplementary queries available.",
+      );
+    }
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // Warn clearly if we still have nothing to crawl.
+  // ────────────────────────────────────────────────────────────────────────
+  if (!allApproved.length) {
+    console.log("");
+    console.log(
+      "⚠  DISCOVERY: Zero approved targets after all rounds.",
+    );
+    console.log(
+      "   Possible causes:",
+    );
+    console.log(
+      "   • SearXNG is returning noise — check SearXNG engines/config.",
+    );
+    console.log(
+      "   • OpenAI relevance is unavailable — check OPENAI_API_KEY.",
+    );
+    console.log(
+      "   • All candidates are genuinely irrelevant to the ICP.",
+    );
+    console.log(
+      "   Stopping before crawl. Do NOT proceed to crawl with 0 targets.",
+    );
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // Print approved targets
+  // ────────────────────────────────────────────────────────────────────────
   console.log("");
   console.log(
     "RELEVANT COMPANY TARGETS:",
   );
 
-  if (!targets.length) {
+  if (!allApproved.length) {
     console.log(
       "No company targets approved by relevance.",
     );
   } else {
-    targets.forEach(
+    allApproved.forEach(
       (target, index) => {
         console.log(
           `${index + 1}. ${target.domain} → ${
-            target.title || target.url
+            target.title ||
+            target.url
           }`,
         );
       },
@@ -130,40 +274,35 @@ export async function discover(
 
   const persistedTargets =
     await upsertCrawlTargets(
-      targets,
+      allApproved,
     );
 
+  // ────────────────────────────────────────────────────────────────────────
+  // Summary
+  // ────────────────────────────────────────────────────────────────────────
   console.log("");
   console.log(
     "DISCOVERY RESULT",
   );
 
   console.log(
-    `Targets discovered: ${rawTargets.length}`,
+    `Queries used: ${queriesUsed.length}`,
   );
 
   console.log(
-    `Targets relevant: ${targets.length}`,
+    `Targets discovered (raw): ${allRawTargets.length}`,
   );
 
   console.log(
-    `Targets rejected: ${ranked.rejected.length}`,
+    `Targets relevant (approved): ${allApproved.length}`,
   );
 
   console.log(
-    `Targets review: ${ranked.review.length}`,
+    `Targets rejected: ${allRejected.length}`,
   );
 
   console.log(
-    `Relevance status: ${ranked.relevanceStatus}`,
-  );
-
-  console.log(
-    `Relevance provider: ${ranked.provider}`,
-  );
-
-  console.log(
-    `Relevance model: ${ranked.model || "none"}`,
+    `Targets review: ${allReview.length}`,
   );
 
   console.log(
@@ -171,12 +310,11 @@ export async function discover(
   );
 
   console.log("");
-
   console.log(
     "CRAWL TARGETS:",
   );
 
-  targets.forEach(
+  allApproved.forEach(
     (target, index) => {
       console.log(
         `${index + 1}. ${target.url}`,
@@ -186,32 +324,43 @@ export async function discover(
 
   return {
     userQuery,
+
     searchPlan,
-    targets,
+
+    targets: allApproved,
 
     relevance: {
-      status: ranked.relevanceStatus,
-      provider: ranked.provider,
-      model: ranked.model,
-      rejected: ranked.rejected.length,
-      review: ranked.review.length,
+      status:
+        round1.ranked.relevanceStatus,
+
+      provider:
+        round1.ranked.provider,
+
+      model:
+        round1.ranked.model,
+
+      rejected:
+        allRejected.length,
+
+      review:
+        allReview.length,
     },
 
     statistics: {
       targetsDiscovered:
-        rawTargets.length,
+        allRawTargets.length,
 
       targetsRelevant:
-        targets.length,
+        allApproved.length,
 
       targetsPersisted:
         persistedTargets.length,
 
       targetsRejected:
-        ranked.rejected.length,
+        allRejected.length,
 
       targetsReview:
-        ranked.review.length,
+        allReview.length,
     },
   };
 }

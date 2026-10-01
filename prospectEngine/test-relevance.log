@@ -1,0 +1,196 @@
+◇ injected env (43) from .env
+
+========================================
+DAY 1 — DISCOVERY
+========================================
+USER QUERY: Find 10 India-based founder-led B2B SaaS, agencies, consultants, coaches, and IT services companies that could benefit from LinkAssist.
+
+GENERATED SEARCH QUERIES:
+1. "B2B SaaS" India inurl:about "founder" OR "CEO" OR "co-founder" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+2. "SaaS company" India inurl:about-us OR inurl:about "we help" OR "our product" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+3. site:.in "SaaS" "software" "founder" OR "CEO" "about us" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+4. "software company" India inurl:about "founded" OR "we build" OR "our team" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+5. "IT services" India site:.in OR site:com inurl:about OR inurl:services "founded" OR "team" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+6. "software development" India inurl:about-us "founder" OR "CEO" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+7. "digital marketing agency" India inurl:about "founder" OR "we are" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+8. "performance marketing" India site:.in OR site:com inurl:about OR inurl:services -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+9. "AI agency" OR "AI marketing" India inurl:about "founder" OR "CEO" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+10. "consulting firm" India inurl:about "founder" OR "principal" OR "established" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+11. "business consultant" India site:.in inurl:about OR inurl:services -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+12. "management consulting" India inurl:about-us "founder" OR "we help businesses" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+13. "business coach" India site:.in OR site:com inurl:about "I help" OR "we help" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+14. "executive coach" India inurl:about "founder" OR "certified" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+15. "recruitment agency" India inurl:about "founded" OR "our team" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+
+ROUND 1 QUERIES (15):
+  1. "B2B SaaS" India inurl:about "founder" OR "CEO" OR "co-founder" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+  2. "SaaS company" India inurl:about-us OR inurl:about "we help" OR "our product" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+  3. site:.in "SaaS" "software" "founder" OR "CEO" "about us" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+  4. "software company" India inurl:about "founded" OR "we build" OR "our team" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+  5. "IT services" India site:.in OR site:com inurl:about OR inurl:services "founded" OR "team" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+  6. "software development" India inurl:about-us "founder" OR "CEO" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+  7. "digital marketing agency" India inurl:about "founder" OR "we are" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+  8. "performance marketing" India site:.in OR site:com inurl:about OR inurl:services -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+  9. "AI agency" OR "AI marketing" India inurl:about "founder" OR "CEO" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+  10. "consulting firm" India inurl:about "founder" OR "principal" OR "established" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+  11. "business consultant" India site:.in inurl:about OR inurl:services -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+  12. "management consulting" India inurl:about-us "founder" OR "we help businesses" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+  13. "business coach" India site:.in OR site:com inurl:about "I help" OR "we help" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+  14. "executive coach" India inurl:about "founder" OR "certified" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+  15. "recruitment agency" India inurl:about "founded" OR "our team" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+
+[Discovery 1/15]
+SearXNG: ""B2B SaaS" India inurl:about "founder" OR "CEO" OR "co-founder" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com" page 1
+Waiting 3s before next search query...
+
+[Discovery 2/15]
+SearXNG: ""SaaS company" India inurl:about-us OR inurl:about "we help" OR "our product" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com" page 1
+Waiting 3s before next search query...
+
+[Discovery 3/15]
+SearXNG: "site:.in "SaaS" "software" "founder" OR "CEO" "about us" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com" page 1
+Waiting 3s before next search query...
+
+[Discovery 4/15]
+SearXNG: ""software company" India inurl:about "founded" OR "we build" OR "our team" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com" page 1
+Waiting 3s before next search query...
+
+[Discovery 5/15]
+SearXNG: ""IT services" India site:.in OR site:com inurl:about OR inurl:services "founded" OR "team" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com" page 1
+Waiting 3s before next search query...
+
+[Discovery 6/15]
+SearXNG: ""software development" India inurl:about-us "founder" OR "CEO" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com" page 1
+Waiting 3s before next search query...
+
+[Discovery 7/15]
+SearXNG: ""digital marketing agency" India inurl:about "founder" OR "we are" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com" page 1
+Waiting 3s before next search query...
+
+[Discovery 8/15]
+SearXNG: ""performance marketing" India site:.in OR site:com inurl:about OR inurl:services -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com" page 1
+Waiting 3s before next search query...
+
+[Discovery 9/15]
+SearXNG: ""AI agency" OR "AI marketing" India inurl:about "founder" OR "CEO" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com" page 1
+Waiting 3s before next search query...
+
+[Discovery 10/15]
+SearXNG: ""consulting firm" India inurl:about "founder" OR "principal" OR "established" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com" page 1
+Waiting 3s before next search query...
+
+[Discovery 11/15]
+SearXNG: ""business consultant" India site:.in inurl:about OR inurl:services -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com" page 1
+Waiting 3s before next search query...
+
+[Discovery 12/15]
+SearXNG: ""management consulting" India inurl:about-us "founder" OR "we help businesses" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com" page 1
+Waiting 3s before next search query...
+
+[Discovery 13/15]
+SearXNG: ""business coach" India site:.in OR site:com inurl:about "I help" OR "we help" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com" page 1
+Waiting 3s before next search query...
+
+[Discovery 14/15]
+SearXNG: ""executive coach" India inurl:about "founder" OR "certified" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com" page 1
+Waiting 3s before next search query...
+
+[Discovery 15/15]
+SearXNG: ""recruitment agency" India inurl:about "founded" OR "our team" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com" page 1
+
+ROUND 1 raw candidates: 74
+
+ROUND 1 approved 0/10 targets. Running supplementary search round...
+
+ROUND 2 QUERIES (10):
+  1. "SaaS startup" India "about us" site:.in OR site:com -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+  2. "product company" India inurl:about "CEO" OR "founder" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+  3. "tech startup" India inurl:about "we are" OR "our mission" site:.in -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+  4. "marketing consultant" India inurl:about site:.in -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+  5. "growth agency" India inurl:about "founder" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+  6. "content marketing" agency India inurl:about "founder" OR "CEO" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+  7. "B2B agency" India site:.in inurl:services OR inurl:about -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+  8. "HR consulting" India inurl:about "founder" site:.in -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+  9. "fintech" India "founder" inurl:about "about us" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+  10. "edtech" India inurl:about "founder" OR "CEO" site:.in -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com
+
+[Discovery 1/15]
+SearXNG: ""SaaS startup" India "about us" site:.in OR site:com -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com" page 1
+Waiting 3s before next search query...
+
+[Discovery 2/15]
+SearXNG: ""product company" India inurl:about "CEO" OR "founder" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com" page 1
+Waiting 3s before next search query...
+
+[Discovery 3/15]
+SearXNG: ""tech startup" India inurl:about "we are" OR "our mission" site:.in -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com" page 1
+Waiting 3s before next search query...
+
+[Discovery 4/15]
+SearXNG: ""marketing consultant" India inurl:about site:.in -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com" page 1
+Waiting 3s before next search query...
+
+[Discovery 5/15]
+SearXNG: ""growth agency" India inurl:about "founder" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com" page 1
+Waiting 3s before next search query...
+
+[Discovery 6/15]
+SearXNG: ""content marketing" agency India inurl:about "founder" OR "CEO" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com" page 1
+Waiting 3s before next search query...
+
+[Discovery 7/15]
+SearXNG: ""B2B agency" India site:.in inurl:services OR inurl:about -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com" page 1
+Waiting 3s before next search query...
+
+[Discovery 8/15]
+SearXNG: ""HR consulting" India inurl:about "founder" site:.in -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com" page 1
+Waiting 3s before next search query...
+
+[Discovery 9/15]
+SearXNG: ""fintech" India "founder" inurl:about "about us" -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com" page 1
+Waiting 3s before next search query...
+
+[Discovery 10/15]
+SearXNG: ""edtech" India inurl:about "founder" OR "CEO" site:.in -site:linkedin.com -site:facebook.com -site:instagram.com -site:clutch.co -site:goodfirms.co -site:g2.com -site:justdial.com -site:indiamart.com -site:naukri.com -site:wellfound.com -site:glassdoor.com -site:indeed.com -site:yourstory.com -site:inc42.com -site:reddit.com -site:medium.com -site:quora.com" page 1
+Waiting 3s before next search query...
+
+[Discovery 11/15]
+SearXNG: "intitle:pricing "B2B SaaS, software, marketing agency, AI agency, consulting, business coaching, IT services, recruitment, professional services" "India" -site:g2.com -site:capterra.com" page 1
+Waiting 3s before next search query...
+
+[Discovery 12/15]
+SearXNG: "inurl:careers "B2B SaaS, software, marketing agency, AI agency, consulting, business coaching, IT services, recruitment, professional services" "India"" page 1
+Waiting 3s before next search query...
+
+[Discovery 13/15]
+SearXNG: ""LinkedIn content, personal branding, content creation" "B2B SaaS, software, marketing agency, AI agency, consulting, business coaching, IT services, recruitment, professional services" "India" company" page 1
+Waiting 3s before next search query...
+
+[Discovery 14/15]
+SearXNG: ""B2B SaaS, software, marketing agency, AI agency, consulting, business coaching, IT services, recruitment, professional services" "India" "about us"" page 1
+Waiting 3s before next search query...
+
+[Discovery 15/15]
+SearXNG: ""B2B SaaS, software, marketing agency, AI agency, consulting, business coaching, IT services, recruitment, professional services" "India" "official website"" page 1
+
+ROUND 2 raw candidates: 67
+
+⚠  DISCOVERY: Zero approved targets after all rounds.
+   Possible causes:
+   • SearXNG is returning noise — check SearXNG engines/config.
+   • OpenAI relevance is unavailable — check OPENAI_API_KEY.
+   • All candidates are genuinely irrelevant to the ICP.
+   Stopping before crawl. Do NOT proceed to crawl with 0 targets.
+
+RELEVANT COMPANY TARGETS:
+No company targets approved by relevance.
+
+DISCOVERY RESULT
+Queries used: 25
+Targets discovered (raw): 141
+Targets relevant (approved): 0
+Targets rejected: 21
+Targets review: 120
+Targets persisted: 0
+
+CRAWL TARGETS:

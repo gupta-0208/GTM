@@ -19,32 +19,70 @@ const NON_COMPANY_PATTERNS = [
 ];
 
 const CORE_BUSINESS_PATTERNS = [
-  { label: "B2B SaaS/software", pattern: /\b(?:b2b\s+)?saas\b|\bsoftware\s+(?:company|platform|firm)\b/i },
-  { label: "agency", pattern: /\bagency\b|\bagencies\b/i },
-  { label: "consulting", pattern: /\bconsult(?:ing|ant|ancy)\b/i },
-  { label: "professional services", pattern: /\bprofessional\s+services?\b/i },
-  { label: "coaching", pattern: /\bcoach(?:ing)?\b/i },
-  { label: "IT/software services", pattern: /\bit\s+services?\b|\bsoftware\s+services?\b/i },
-  { label: "recruitment", pattern: /\brecruit(?:ment|ing)\b|\bstaffing\b/i },
-  { label: "marketing services", pattern: /\bmarketing\s+(?:agency|firm|services?)\b/i },
+  {
+    label: "B2B SaaS/software",
+    pattern:
+      /\b(?:b2b\s+)?saas\b|\bsoftware\s+(?:company|platform|firm)\b/i,
+  },
+  {
+    label: "agency",
+    pattern: /\bagency\b|\bagencies\b/i,
+  },
+  {
+    label: "consulting",
+    pattern: /\bconsult(?:ing|ant|ancy)\b/i,
+  },
+  {
+    label: "professional services",
+    pattern: /\bprofessional\s+services?\b/i,
+  },
+  {
+    label: "coaching",
+    pattern: /\bcoach(?:ing)?\b/i,
+  },
+  {
+    label: "IT/software services",
+    pattern: /\bit\s+services?\b|\bsoftware\s+services?\b/i,
+  },
+  {
+    label: "recruitment",
+    pattern: /\brecruit(?:ment|ing)\b|\bstaffing\b/i,
+  },
+  {
+    label: "marketing services",
+    pattern: /\bmarketing\s+(?:agency|firm|services?)\b/i,
+  },
 ];
 
 const FOUNDER_EXPERT_PATTERNS = [
-  { label: "founder-led", pattern: /\bfounder\b|\bco[- ]founder\b|\bceo\b|\bowner\b/i },
-  { label: "expert-led", pattern: /\bconsultant\b|\bcoach\b|\bfractional\b|\badvisor\b/i },
+  {
+    label: "founder-led",
+    pattern: /\bfounder\b|\bco[- ]founder\b|\bceo\b|\bowner\b/i,
+  },
+  {
+    label: "expert-led",
+    pattern:
+      /\bconsultant\b|\bcoach\b|\bfractional\b|\badvisor\b/i,
+  },
 ];
 
 function profileText(profile) {
   return [
     profile?.company_name,
-    profile?.company_description,
-    ...(profile?.industries || []),
-    ...(profile?.products_services || []),
-    ...(profile?.technology_signals || []).map(
-      (x) => `${x?.technology || ""} ${x?.relationship || ""}`
-    ),
+    profile?.description,
+    profile?.industry,
+    profile?.business_type,
+    profile?.company_type,
+    profile?.services,
+    profile?.products,
+    profile?.title,
+    profile?.snippet,
+    profile?.location,
+    profile?.country,
+    profile?.city,
   ]
     .filter(Boolean)
+    .map((value) => String(value))
     .join(" ");
 }
 
@@ -68,14 +106,14 @@ export const LINKASSIST_ICP = {
   ],
 
   buyer_roles: [
-    "founder",
-    "co-founder",
+    "Founder",
+    "Co-Founder",
     "CEO",
-    "owner",
-    "consultant",
-    "coach",
-    "agency owner",
-    "senior B2B professional",
+    "Owner",
+    "Consultant",
+    "Coach",
+    "Agency Owner",
+    "Senior B2B Professional",
   ],
 
   company_size: {
@@ -85,16 +123,18 @@ export const LINKASSIST_ICP = {
 
   discovery_terms: [
     "B2B SaaS",
-    "software company",
+    "software",
+    "agency",
     "marketing agency",
-    "consulting firm",
-    "recruitment agency",
+    "AI agency",
+    "consulting",
+    "business consultant",
     "business coach",
-    "financial consultancy",
-    "legal consultancy",
-    "architecture firm",
-    "IT services",
     "professional services",
+    "IT services",
+    "software services",
+    "recruitment",
+    "staffing",
   ],
 };
 
@@ -112,7 +152,7 @@ export function evaluateIcp(profile) {
   const text = profileText(profile);
 
   const nonCompany = NON_COMPANY_PATTERNS.find((pattern) =>
-    pattern.test(text)
+    pattern.test(text),
   );
 
   if (nonCompany) {
@@ -123,13 +163,15 @@ export function evaluateIcp(profile) {
     };
   }
 
-  const businessMatches = CORE_BUSINESS_PATTERNS.filter(({ pattern }) =>
-    pattern.test(text)
-  );
+  const businessMatches =
+    CORE_BUSINESS_PATTERNS.filter(({ pattern }) =>
+      pattern.test(text),
+    );
 
-  const founderMatches = FOUNDER_EXPERT_PATTERNS.filter(({ pattern }) =>
-    pattern.test(text)
-  );
+  const founderMatches =
+    FOUNDER_EXPERT_PATTERNS.filter(({ pattern }) =>
+      pattern.test(text),
+    );
 
   for (const match of businessMatches) {
     evidence.push(`business fit: ${match.label}`);

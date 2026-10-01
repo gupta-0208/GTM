@@ -63,6 +63,11 @@ export const config = {
   searxngCacheTtlDays:
     numberEnv("SEARXNG_CACHE_TTL_DAYS", 30),
 
+  // When true every SearXNG call goes live and bypasses the local cache.
+  // Set SEARXNG_BYPASS_CACHE=true for a fresh demo run.
+  searxngBypassCache:
+    booleanEnv("SEARXNG_BYPASS_CACHE", false),
+
   discoveryLimit:
     numberEnv("DISCOVERY_LIMIT", 200),
 

@@ -1,11 +1,16 @@
-// Code-based company qualification. Combines the permanent BDA ICP with the
-// query-specific searchPlan. The LLM is not involved in the decision: this is
-// deterministic filtering/validation on the extracted company profile.
+// Code-based company qualification.
+// Combines the permanent LinkAssist ICP with the query-specific searchPlan.
 //
-// Returns one of: "qualified" | "not_qualified" | "review".
-// Qualification requires BOTH ICP fit AND searchPlan fit.
-// "Unknown/insufficient evidence" always resolves to "review", never
-// "qualified".
+// The LLM is NOT involved in this decision.
+// Qualification is deterministic and happens after company extraction.
+//
+// Returns:
+//   "qualified"
+//   "not_qualified"
+//   "review"
+//
+// IMPORTANT:
+// Unknown / insufficient evidence must never become "qualified".
 
 import { evaluateIcp } from "../icp/linkassist.js";
 
@@ -38,7 +43,11 @@ function tokenize(text) {
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, " ")
     .split(/\s+/)
-    .filter((word) => word.length >= 3 && !STOP_WORDS.has(word));
+    .filter(
+      (word) =>
+        word.length >= 3 &&
+        !STOP_WORDS.has(word),
+    );
 }
 
 function profileText(profile) {
@@ -55,44 +64,72 @@ function profileText(profile) {
 function searchPlanTerms(searchPlan) {
   return [
     ...new Set([
-      ...tokenize(searchPlan?.product_or_technology),
-      ...tokenize(searchPlan?.industry),
-      ...tokenize(searchPlan?.target_description),
+      ...tokenize(
+        searchPlan?.product_or_technology,
+      ),
+      ...tokenize(
+        searchPlan?.industry,
+      ),
+      ...tokenize(
+        searchPlan?.target_description,
+      ),
     ]),
   ];
 }
 
 function offeringTechnologies(profile) {
-  return (profile?.technology_signals || [])
+  return (
+    profile?.technology_signals || []
+  )
     .filter(
       (signal) =>
         signal &&
-        (signal.relationship === "offers" ||
-          signal.relationship === "implements"),
+        (
+          signal.relationship ===
+            "offers" ||
+          signal.relationship ===
+            "implements"
+        ),
     )
-    .map((signal) => String(signal.technology || "").toLowerCase());
+    .map((signal) =>
+      String(
+        signal.technology || "",
+      ).toLowerCase(),
+    );
 }
 
 const USAGE_PHRASES =
   /\b(?:uses?|using|runs?\s+on|built\s+on|powered\s+by|deployed\s+on|migrated\s+to|adopted|rolled\s+out)\b/i;
 
 function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return String(value).replace(
+    /[.*+?^${}()|[\]\\]/g,
+    "\\$&",
+  );
 }
 
-// For a "uses" search plan, a mere mention of the technology is not enough to
-// prove the company uses it. True use evidence is either a technology_signal
-// with relationship "uses"/"integrates_with", or an explicit usage phrase in
-// the profile text.
-function hasUseEvidence(profile, term) {
-  const lower = term.toLowerCase();
+function hasUseEvidence(
+  profile,
+  term,
+) {
+  const lower =
+    String(term).toLowerCase();
 
-  const signal = (profile?.technology_signals || []).some(
+  const signal = (
+    profile?.technology_signals ||
+    []
+  ).some(
     (entry) =>
       entry &&
-      (entry.relationship === "uses" ||
-        entry.relationship === "integrates_with") &&
-      String(entry.technology || "")
+      (
+        entry.relationship ===
+          "uses" ||
+        entry.relationship ===
+          "integrates_with"
+      ) &&
+      String(
+        entry.technology || "",
+      )
         .toLowerCase()
         .includes(lower),
   );
@@ -101,88 +138,162 @@ function hasUseEvidence(profile, term) {
     return true;
   }
 
-  const text = profileText(profile).toLowerCase();
+  const text =
+    profileText(
+      profile,
+    ).toLowerCase();
+
+  const termPattern =
+    new RegExp(
+      `\\b${escapeRegExp(lower)}\\b`,
+      "i",
+    );
 
   return (
-    new RegExp(`\\b${escapeRegExp(lower)}\\b`, "i").test(text) &&
+    termPattern.test(text) &&
     USAGE_PHRASES.test(text)
   );
 }
 
-function evaluateSearchPlanFit(profile, searchPlan) {
+function evaluateSearchPlanFit(
+  profile,
+  searchPlan,
+) {
   const evidence = [];
 
   if (!searchPlan) {
     return {
       status: "review",
-      reasons: ["missing search plan"],
+      reasons: [
+        "missing search plan",
+      ],
       evidence,
     };
   }
 
-  const terms = searchPlanTerms(searchPlan);
+  const terms =
+    searchPlanTerms(
+      searchPlan,
+    );
 
   if (!terms.length) {
     return {
       status: "review",
-      reasons: ["no search plan terms"],
+      reasons: [
+        "no search plan terms",
+      ],
       evidence,
     };
   }
 
   const hasContent =
-    Boolean(profile?.company_description) ||
-    (profile?.industries || []).length > 0 ||
-    (profile?.products_services || []).length > 0;
+    Boolean(
+      profile?.company_description,
+    ) ||
+    (
+      profile?.industries || []
+    ).length > 0 ||
+    (
+      profile?.products_services || []
+    ).length > 0;
 
   if (!hasContent) {
     return {
       status: "review",
-      reasons: ["no profile evidence"],
+      reasons: [
+        "no profile evidence",
+      ],
       evidence,
     };
   }
 
-  const text = profileText(profile).toLowerCase();
-  const matched = terms.filter((term) => text.includes(term));
+  const text =
+    profileText(
+      profile,
+    ).toLowerCase();
+
+  const matched =
+    terms.filter(
+      (term) =>
+        text.includes(
+          term,
+        ),
+    );
 
   if (!matched.length) {
     return {
       status: "not_qualified",
-      reasons: ["does not match search plan"],
+      reasons: [
+        "does not match search plan",
+      ],
       evidence,
     };
   }
 
-  evidence.push(`matches: ${matched.join(", ")}`);
+  evidence.push(
+    `matches: ${matched.join(", ")}`,
+  );
 
-  // When the query targets companies that *use* a technology, a company that
-  // *offers/implements* it is a vendor, not a prospect.
-  if (searchPlan.relationship === "uses") {
-    const offerings = offeringTechnologies(profile);
+  //
+  // For "uses" queries, a vendor/implementation company
+  // is not the intended prospect.
+  //
+  if (
+    searchPlan.relationship ===
+    "uses"
+  ) {
+    const offerings =
+      offeringTechnologies(
+        profile,
+      );
 
-    const vendorTerms = matched.filter((term) =>
-      offerings.some((offering) => offering.includes(term)),
-    );
+    const vendorTerms =
+      matched.filter(
+        (term) =>
+          offerings.some(
+            (offering) =>
+              offering.includes(
+                term,
+              ),
+          ),
+      );
 
     if (vendorTerms.length) {
       return {
-        status: "not_qualified",
-        reasons: ["sells the target technology"],
-        evidence: [`offers: ${vendorTerms.join(", ")}`],
+        status:
+          "not_qualified",
+
+        reasons: [
+          "sells the target technology",
+        ],
+
+        evidence: [
+          `offers: ${vendorTerms.join(", ")}`,
+        ],
       };
     }
 
-    const usedTerms = matched.filter((term) =>
-      hasUseEvidence(profile, term),
-    );
+    const usedTerms =
+      matched.filter(
+        (term) =>
+          hasUseEvidence(
+            profile,
+            term,
+          ),
+      );
 
     if (usedTerms.length) {
-      evidence.push(`uses: ${usedTerms.join(", ")}`);
+      evidence.push(
+        `uses: ${usedTerms.join(", ")}`,
+      );
     } else {
       return {
         status: "review",
-        reasons: ["mentions technology but no evidence of use"],
+
+        reasons: [
+          "mentions technology but no evidence of use",
+        ],
+
         evidence,
       };
     }
@@ -195,35 +306,80 @@ function evaluateSearchPlanFit(profile, searchPlan) {
   };
 }
 
-export function qualifyCompany({ profile, searchPlan, domain } = {}) {
+export function qualifyCompany({
+  profile,
+  searchPlan,
+  domain,
+} = {}) {
+  void domain;
+
   const reasons = [];
   const evidence = [];
 
-  const icp = evaluateIcp(profile);
-  reasons.push(...icp.reasons);
-  evidence.push(...icp.evidence);
+  //
+  // 1. Permanent LinkAssist ICP gate
+  //
+  const icp =
+    evaluateIcp(
+      profile,
+    );
 
-  if (icp.status === "not_qualified") {
+  reasons.push(
+    ...(icp.reasons || []),
+  );
+
+  evidence.push(
+    ...(icp.evidence || []),
+  );
+
+  if (
+    icp.status ===
+    "not_qualified"
+  ) {
     return {
-      status: "not_qualified",
+      status:
+        "not_qualified",
       reasons,
       evidence,
     };
   }
 
-  const plan = evaluateSearchPlanFit(profile, searchPlan);
-  reasons.push(...plan.reasons);
-  evidence.push(...plan.evidence);
+  //
+  // 2. Query-specific searchPlan gate
+  //
+  const plan =
+    evaluateSearchPlanFit(
+      profile,
+      searchPlan,
+    );
 
-  if (plan.status === "not_qualified") {
+  reasons.push(
+    ...(plan.reasons || []),
+  );
+
+  evidence.push(
+    ...(plan.evidence || []),
+  );
+
+  if (
+    plan.status ===
+    "not_qualified"
+  ) {
     return {
-      status: "not_qualified",
+      status:
+        "not_qualified",
       reasons,
       evidence,
     };
   }
 
-  if (icp.status === "review" || plan.status === "review") {
+  //
+  // Any uncertainty stays review.
+  //
+  if (
+    icp.status === "review" ||
+    plan.status === "review"
+  ) {
     return {
       status: "review",
       reasons,
@@ -238,6 +394,11 @@ export function qualifyCompany({ profile, searchPlan, domain } = {}) {
   };
 }
 
-export function shouldDeepCrawl(qualification) {
-  return qualification?.status === "qualified";
+export function shouldDeepCrawl(
+  qualification,
+) {
+  return (
+    qualification?.status ===
+    "qualified"
+  );
 }

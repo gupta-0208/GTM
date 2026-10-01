@@ -37,6 +37,11 @@ function cacheKey(query, page) {
 }
 
 function isCacheFresh(entry) {
+  // Allow a hard bypass so a fresh run always fetches live results.
+  if (config.searxngBypassCache) {
+    return false;
+  }
+
   if (!entry) {
     return false;
   }
