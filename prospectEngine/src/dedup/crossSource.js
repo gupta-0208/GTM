@@ -1,19 +1,17 @@
 import {
+  isRoleEmail,
   normalizeEmail,
   normalizePhone,
   splitName,
 } from "../parse/contact.js";
 
+import {
+  nameKey,
+} from "../lib/names.js";
+
 const SOURCE_ORDER = ["website", "github", "mca"];
 
-export function nameKey(name) {
-  return String(name || "")
-    .toLowerCase()
-    .replace(/['’]/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+export { nameKey };
 
 export function normalizeProfileUrl(url) {
   return String(url || "")
@@ -21,6 +19,7 @@ export function normalizeProfileUrl(url) {
     .toLowerCase()
     .replace(/^https?:\/\//, "")
     .replace(/^www\./, "")
+    .replace(/[?#].*$/, "")
     .replace(/\/+$/, "");
 }
 
@@ -102,21 +101,91 @@ const SAME = "same";
 const REVIEW = "review";
 const DISTINCT = "distinct";
 
+function companyDomainFromUrl(url) {
+  try {
+    return new URL(url).hostname
+      .replace(/^www\./, "")
+      .toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+function identityEmail(raw) {
+  const email = normalizeEmail(raw);
+
+  return email && !isRoleEmail(email) ? email : null;
+}
+
 function sharedProfileUrl(a, b) {
   if (!a.profile_urls?.length || !b.profile_urls?.length) {
     return false;
   }
 
-  const set = new Set(a.profile_urls);
+  const set = new Set(
+    a.profile_urls.map(normalizeProfileUrl)
+  );
 
-  return b.profile_urls.some((url) => set.has(url));
+  return b.profile_urls.some((url) =>
+    set.has(normalizeProfileUrl(url))
+  );
 }
 
-export function comparePeople(a, b) {
-  const aEmail = normalizeEmail(a?.email);
-  const bEmail = normalizeEmail(b?.email);
-  const aPhone = normalizePhone(a?.phone);
-  const bPhone = normalizePhone(b?.phone);
+// A phone is an identity key only when it is unique within its domain. Shared
+// office lines appear on many people and must not force a merge.
+function buildPhoneIdentity(people) {
+  const byDomainPhone = new Map();
+
+  for (const person of people) {
+    const phone = normalizePhone(person?.phone);
+
+    if (!phone) {
+      continue;
+    }
+
+    const domain = person?.company_domain || "";
+    const key = `${domain}::${phone}`;
+
+    byDomainPhone.set(
+      key,
+      (byDomainPhone.get(key) || 0) + 1
+    );
+  }
+
+  const identityPhones = new Set();
+
+  for (const [key, count] of byDomainPhone) {
+    if (count === 1) {
+      identityPhones.add(key.split("::")[1]);
+    }
+  }
+
+  return identityPhones;
+}
+
+export function comparePeople(a, b, ctx = {}) {
+  // Never auto-merge across company domains, even on shared name/email.
+  if (
+    a?.company_domain &&
+    b?.company_domain &&
+    a.company_domain !== b.company_domain
+  ) {
+    return DISTINCT;
+  }
+
+  const aEmail = identityEmail(a?.email);
+  const bEmail = identityEmail(b?.email);
+
+  const aPhoneRaw = normalizePhone(a?.phone);
+  const bPhoneRaw = normalizePhone(b?.phone);
+  const aPhone =
+    aPhoneRaw && ctx.phoneIdentity?.has(aPhoneRaw)
+      ? aPhoneRaw
+      : null;
+  const bPhone =
+    bPhoneRaw && ctx.phoneIdentity?.has(bPhoneRaw)
+      ? bPhoneRaw
+      : null;
 
   // Conflicting identifiers prove different people and block name merging.
   if (aEmail && bEmail && aEmail !== bEmail) {
@@ -132,17 +201,17 @@ export function comparePeople(a, b) {
     return SAME;
   }
 
-  // 2. exact normalized phone
+  // 2. exact normalized phone (only when unique in its domain)
   if (aPhone && bPhone) {
     return SAME;
   }
 
-  // 4. strong source identity (shared profile URL)
+  // 3. strong source identity (shared profile URL)
   if (sharedProfileUrl(a, b)) {
     return SAME;
   }
 
-  // 3. exact name + same company (scope is implied by the caller)
+  // 4. exact name + same company (scope is implied by the caller)
   if (
     a.name_key &&
     b.name_key &&
@@ -183,6 +252,9 @@ export function personFromContact(contact) {
     titles: contact?.title ? [contact.title] : [],
     role_category: contact?.role_category || null,
     sources: ["website"],
+    company_domain: sourceUrls.length
+      ? companyDomainFromUrl(sourceUrls[0])
+      : null,
     confidence: contact?.confidence ?? 0,
   };
 }
@@ -222,6 +294,7 @@ export function personFromGithubMember(
     titles: [],
     role_category: null,
     sources: ["github"],
+    company_domain: null,
     confidence: confidence ?? 0,
   };
 }
@@ -257,6 +330,7 @@ export function personFromMcaDirector(
     titles: director?.designation ? [director.designation] : [],
     role_category: null,
     sources: ["mca"],
+    company_domain: null,
     confidence: confidence ?? 0,
   };
 }
@@ -336,56 +410,100 @@ export function mergePeople(group) {
   return merged;
 }
 
-// Cross-source dedupe: strong identity matches (email, phone, profile URL,
-// exact name) collapse into a single person; fuzzy name similarity only
-// surfaces a review candidate and never auto-merges.
-export function dedupePeople(people) {
-  const list = (people || []).filter(Boolean);
+function splitByConflicts(members, ctx) {
   const groups = [];
 
-  for (const person of list) {
-    const mergeTargets = [];
+  for (const member of members) {
+    let placed = false;
 
     for (const group of groups) {
-      let same = false;
-      let distinct = false;
+      const conflict = group.some(
+        (existing) =>
+          comparePeople(member, existing, ctx) === DISTINCT
+      );
 
-      for (const member of group) {
-        const verdict = comparePeople(member, person);
-
-        if (verdict === SAME) {
-          same = true;
-        } else if (verdict === DISTINCT) {
-          distinct = true;
-        }
-      }
-
-      if (same && !distinct) {
-        mergeTargets.push(group);
+      if (!conflict) {
+        group.push(member);
+        placed = true;
+        break;
       }
     }
 
-    if (mergeTargets.length) {
-      const mergedGroup = [
-        person,
-        ...mergeTargets.flat(),
-      ];
-
-      for (const group of mergeTargets) {
-        groups.splice(groups.indexOf(group), 1);
-      }
-
-      groups.push(mergedGroup);
-    } else {
-      groups.push([person]);
+    if (!placed) {
+      groups.push([member]);
     }
+  }
+
+  return groups;
+}
+
+// Cross-source dedupe with transitive (union-find) merging. Strong identity
+// matches (email, unique phone, profile URL, exact name) collapse into one
+// person; fuzzy name similarity only surfaces a review candidate; conflicting
+// identifiers and company-domain boundaries are never crossed.
+export function dedupePeople(people) {
+  const list = (people || []).filter(Boolean);
+  const n = list.length;
+
+  if (!n) {
+    return { merged: [], review: [] };
+  }
+
+  const ctx = {
+    phoneIdentity: buildPhoneIdentity(list),
+  };
+
+  const parent = Array.from({ length: n }, (_, i) => i);
+
+  const find = (x) => {
+    while (parent[x] !== x) {
+      parent[x] = parent[parent[x]];
+      x = parent[x];
+    }
+
+    return x;
+  };
+
+  const union = (a, b) => {
+    const ra = find(a);
+    const rb = find(b);
+
+    if (ra !== rb) {
+      parent[rb] = ra;
+    }
+  };
+
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      if (comparePeople(list[i], list[j], ctx) === SAME) {
+        union(i, j);
+      }
+    }
+  }
+
+  const components = new Map();
+
+  for (let i = 0; i < n; i++) {
+    const root = find(i);
+
+    if (!components.has(root)) {
+      components.set(root, []);
+    }
+
+    components.get(root).push(list[i]);
+  }
+
+  const mergedGroups = [];
+
+  for (const members of components.values()) {
+    mergedGroups.push(...splitByConflicts(members, ctx));
   }
 
   const review = [];
 
-  for (let i = 0; i < list.length; i++) {
-    for (let j = i + 1; j < list.length; j++) {
-      if (comparePeople(list[i], list[j]) === REVIEW) {
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      if (comparePeople(list[i], list[j], ctx) === REVIEW) {
         review.push({
           reason: "fuzzy-name",
           members: [list[i], list[j]],
@@ -395,7 +513,7 @@ export function dedupePeople(people) {
   }
 
   return {
-    merged: groups.map((group) => mergePeople(group)),
+    merged: mergedGroups.map((group) => mergePeople(group)),
     review,
   };
 }

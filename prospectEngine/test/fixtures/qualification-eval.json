@@ -1,0 +1,116 @@
+[
+  {
+    "name": "real operating manufacturer matching the query",
+    "searchPlan": {
+      "target_description": "Indian solar manufacturers that use SAP",
+      "industry": "solar",
+      "location": "India",
+      "product_or_technology": "sap",
+      "relationship": "uses"
+    },
+    "profile": {
+      "company_name": "Acme Solar Pvt Ltd",
+      "company_description": "Acme Solar manufactures solar panels and runs production, inventory and finance on SAP ERP.",
+      "industries": ["solar", "renewable energy", "manufacturing"],
+      "products_services": ["solar panels", "solar modules"],
+      "technology_signals": [
+        { "technology": "sap", "relationship": "uses", "evidence_ids": [], "explanation": "" }
+      ]
+    },
+    "expected": "qualified"
+  },
+  {
+    "name": "directory / listicle site",
+    "searchPlan": {
+      "target_description": "Indian solar manufacturers that use SAP",
+      "industry": "solar",
+      "location": "India",
+      "product_or_technology": "sap",
+      "relationship": "uses"
+    },
+    "profile": {
+      "company_name": "Top Companies Using SAP",
+      "company_description": "A directory listing the top 100 companies that use SAP in India.",
+      "industries": ["directory"],
+      "products_services": [],
+      "technology_signals": []
+    },
+    "expected": "not_qualified"
+  },
+  {
+    "name": "vendor/consultancy offering the target technology",
+    "searchPlan": {
+      "target_description": "Indian solar manufacturers that use SAP",
+      "industry": "solar",
+      "location": "India",
+      "product_or_technology": "sap",
+      "relationship": "uses"
+    },
+    "profile": {
+      "company_name": "SAP Solutions India",
+      "company_description": "We provide SAP implementation and consulting services to manufacturing companies.",
+      "industries": ["software", "technology"],
+      "products_services": ["sap implementation", "erp consulting"],
+      "technology_signals": [
+        { "technology": "sap", "relationship": "offers", "evidence_ids": [], "explanation": "" }
+      ]
+    },
+    "expected": "not_qualified"
+  },
+  {
+    "name": "media publication",
+    "searchPlan": {
+      "target_description": "Indian solar manufacturers that use SAP",
+      "industry": "solar",
+      "location": "India",
+      "product_or_technology": "sap",
+      "relationship": "uses"
+    },
+    "profile": {
+      "company_name": "Solar Energy News",
+      "company_description": "A news magazine covering the renewable energy industry.",
+      "industries": ["media", "news"],
+      "products_services": [],
+      "technology_signals": []
+    },
+    "expected": "not_qualified"
+  },
+  {
+    "name": "mentions target tech but no use evidence -> review",
+    "searchPlan": {
+      "target_description": "Indian solar manufacturers that use SAP",
+      "industry": "solar",
+      "location": "India",
+      "product_or_technology": "sap",
+      "relationship": "uses"
+    },
+    "profile": {
+      "company_name": "Bright Solar",
+      "company_description": "Bright Solar manufactures solar panels and mentions SAP in passing.",
+      "industries": ["solar", "manufacturing"],
+      "products_services": ["solar panels"],
+      "technology_signals": [
+        { "technology": "sap", "relationship": "mentions", "evidence_ids": [], "explanation": "" }
+      ]
+    },
+    "expected": "review"
+  },
+  {
+    "name": "no evidence -> review",
+    "searchPlan": {
+      "target_description": "Indian solar manufacturers that use SAP",
+      "industry": "solar",
+      "location": "India",
+      "product_or_technology": "sap",
+      "relationship": "uses"
+    },
+    "profile": {
+      "company_name": "Mystery Co",
+      "company_description": "",
+      "industries": [],
+      "products_services": [],
+      "technology_signals": []
+    },
+    "expected": "review"
+  }
+]

@@ -4,20 +4,46 @@ import { config } from "../config.js";
 
 import { normalizeUrl } from "../lib/url.js";
 
+import {
+  isBlockedDomain,
+  isListicleTitle,
+} from "./blocklist.js";
+
+// The LLM returns *facts* about each root domain, never a final qualification.
+// Code in decideFromFacts makes the approve/reject/review decision. This keeps
+// the decision deterministic and means a model score can never promote a
+// non-company into the crawl queue.
+
+
+
+
+
+
+
+
+
+
 const DecisionSchema = z.object({
-  url: z.string(),
-  relevant: z.boolean(),
-  score: z.number().min(0).max(1),
+  domain: z.string(),
   type: z.enum([
     "company",
     "company_profile",
     "person",
     "directory",
-    "irrelevant",
+    "media",
+    "article",
+    "job_board",
+    "review_site",
+    "educational",
+    "generic_info",
+    "listicle",
+    "vendor_partner",
     "unknown",
   ]),
+  is_company_website: z.boolean().nullable(),
+  matches_search_plan: z.boolean().nullable(),
   reason_code: z.string(),
-  confidence: z.number().min(0).max(1),
+  evidence: z.string(),
 });
 
 const BatchSchema = z.object({
@@ -32,9 +58,7 @@ const RELEVANCE_JSON_SCHEMA = {
       items: {
         type: "object",
         properties: {
-          url: { type: "string" },
-          relevant: { type: "boolean" },
-          score: { type: "number" },
+          domain: { type: "string" },
           type: {
             type: "string",
             enum: [
@@ -42,20 +66,33 @@ const RELEVANCE_JSON_SCHEMA = {
               "company_profile",
               "person",
               "directory",
-              "irrelevant",
+              "media",
+              "article",
+              "job_board",
+              "review_site",
+              "educational",
+              "generic_info",
+              "listicle",
+              "vendor_partner",
               "unknown",
             ],
           },
+          is_company_website: {
+  type: ["boolean", "null"],
+},
+          matches_search_plan: {
+  type: ["boolean", "null"],
+},
           reason_code: { type: "string" },
-          confidence: { type: "number" },
+          evidence: { type: "string" },
         },
         required: [
-          "url",
-          "relevant",
-          "score",
+          "domain",
           "type",
+          "is_company_website",
+          "matches_search_plan",
           "reason_code",
-          "confidence",
+          "evidence",
         ],
         additionalProperties: false,
       },
@@ -65,35 +102,17 @@ const RELEVANCE_JSON_SCHEMA = {
   additionalProperties: false,
 };
 
-// Domains that are never target companies and are filtered deterministically
-// before any LLM call. Social/profile, search engines, directories and wikis.
-const EXCLUDED_DOMAINS = new Set([
-  "linkedin.com",
-  "facebook.com",
-  "instagram.com",
-  "youtube.com",
-  "twitter.com",
-  "x.com",
-  "tiktok.com",
-  "pinterest.com",
-  "reddit.com",
-  "wikipedia.org",
-  "en.wikipedia.org",
-  "g2.com",
-  "capterra.com",
-  "crunchbase.com",
-  "glassdoor.com",
-  "indeed.com",
-  "trustpilot.com",
-  "yelp.com",
-  "angellist.com",
-  "wellfound.com",
-  "google.com",
-  "bing.com",
-  "yahoo.com",
-  "duckduckgo.com",
-  "baidu.com",
-  "ask.com",
+const EXCLUDED_TYPES = new Set([
+  "company_profile",
+  "directory",
+  "media",
+  "article",
+  "job_board",
+  "review_site",
+  "educational",
+  "generic_info",
+  "listicle",
+  "person",
 ]);
 
 const EXCLUDED_EXTENSIONS =
@@ -105,12 +124,12 @@ const SEARCH_RESULT_PATTERNS = [
   /\/s\?/i,
 ];
 
-function modelNameFor(providerName) {
-  return providerName === "gemini" ? config.llmGeminiModel : config.openaiModel;
-}
-
 function isSearchResultUrl(url) {
   return SEARCH_RESULT_PATTERNS.some((pattern) => pattern.test(url));
+}
+
+function modelNameFor(providerName) {
+  return providerName === "gemini" ? config.llmGeminiModel : config.openaiModel;
 }
 
 export function normalizeCandidate(candidate) {
@@ -129,6 +148,7 @@ export function normalizeCandidate(candidate) {
     url: normalized.normalizedUrl,
     baseUrl: normalized.baseUrl,
     domain: normalized.domain,
+    hostname: normalized.hostname,
     valid: true,
   };
 }
@@ -142,47 +162,32 @@ export function deterministicFilter(candidates) {
     const candidate = normalizeCandidate(raw);
 
     if (!candidate.valid) {
-      rejected.push({
-        candidate,
-        reason_code: "malformed_url",
-      });
-
+      rejected.push({ candidate, reason_code: "malformed_url" });
       continue;
     }
 
     if (EXCLUDED_EXTENSIONS.test(candidate.url)) {
-      rejected.push({
-        candidate,
-        reason_code: "non_html_asset",
-      });
-
+      rejected.push({ candidate, reason_code: "non_html_asset" });
       continue;
     }
 
-    if (EXCLUDED_DOMAINS.has(candidate.domain)) {
-      rejected.push({
-        candidate,
-        reason_code: "excluded_domain",
-      });
+    if (isBlockedDomain(candidate.hostname || candidate.domain)) {
+      rejected.push({ candidate, reason_code: "excluded_domain" });
+      continue;
+    }
 
+    if (isListicleTitle(candidate.title)) {
+      rejected.push({ candidate, reason_code: "listicle_title" });
       continue;
     }
 
     if (isSearchResultUrl(candidate.url)) {
-      rejected.push({
-        candidate,
-        reason_code: "search_result_page",
-      });
-
+      rejected.push({ candidate, reason_code: "search_result_page" });
       continue;
     }
 
     if (seen.has(candidate.url)) {
-      rejected.push({
-        candidate,
-        reason_code: "duplicate_url",
-      });
-
+      rejected.push({ candidate, reason_code: "duplicate_url" });
       continue;
     }
 
@@ -193,40 +198,186 @@ export function deterministicFilter(candidates) {
   return { accepted, rejected };
 }
 
-function buildPrompt(userQuery, batch) {
-  const lines = batch.map(
+function buildPrompt(userQuery, searchPlan, domains) {
+  const lines = domains.map(
     (candidate, index) =>
-      `${index + 1}. URL: ${candidate.url}\n` +
-      `   Domain: ${candidate.domain}\n` +
+      `${index + 1}. Domain: ${candidate.domain}\n` +
       `   Title: ${candidate.title || ""}\n` +
       `   Snippet: ${candidate.snippet || ""}`,
   );
 
-  return `You are the relevance filter for a B2B prospect discovery system.
+  const plan = [
+    searchPlan?.target_description,
+    searchPlan?.industry,
+    searchPlan?.location,
+    searchPlan?.company_type,
+    searchPlan?.product_or_technology,
+    searchPlan?.relationship,
+  ]
+    .filter(Boolean)
+    .join("; ");
 
-The user query is: "${userQuery}"
+  return `You are a fact-extraction helper for LinkAssist prospect discovery.
 
-Classify whether each of the following candidate URLs represents a relevant
-target company website for the query. Only classify URLs already listed below.
-Never invent or modify URLs.
+Your job is NOT to invent prospects and NOT to return a general web result.
+Your job is to determine whether each domain is the official website of a real
+operating company that fits the LinkAssist discovery criteria.
 
-For each URL decide:
-- relevant: true when the URL is a real company website (or a page on one)
-  that matches the query's industry/product/technology intent.
-- score: 0..1, higher means more likely a relevant target company.
-- type: "company", "company_profile", "person", "directory", "irrelevant",
-  or "unknown".
-- reason_code: a short snake_case reason such as "matches_industry",
-  "directory_listing", "news_article", "vendor_partner", "unrelated".
-- confidence: 0..1, how confident you are in this single decision.
+LINKASSIST ICP
 
-Candidates:
+Geography:
+- India
+
+Target business types:
+- B2B SaaS
+- software companies
+- marketing agencies
+- AI agencies
+- consulting firms
+- business consultants
+- business coaches
+- professional services
+- IT/software services
+- recruitment/staffing agencies
+
+Preferred company profile:
+- founder-led or expert-led
+- small business, approximately 1-50 employees
+
+Likely buyer:
+- founder
+- CEO
+- consultant
+- coach
+- agency owner
+- senior B2B professional
+
+The founder-led and company-size signals are supporting signals.
+Do NOT invent them when they are not visible in the supplied evidence.
+
+REJECT these source types:
+- directories
+- aggregators
+- marketplaces
+- media
+- news
+- articles
+- blogs
+- listicles
+- podcasts
+- communities
+- job boards
+- review sites
+- educational sites
+- generic information pages
+- third-party company profiles
+
+A page ABOUT a company is NOT the company's own website.
+A directory listing a company is NOT the company's own website.
+A news article mentioning a company is NOT the company's own website.
+
+USER QUERY:
+"${userQuery}"
+
+SEARCH PLAN:
+${plan || "(none)"}
+
+For each domain, return ONLY these facts:
+
+1. type
+
+Use exactly one:
+company
+company_profile
+person
+directory
+media
+article
+job_board
+review_site
+educational
+generic_info
+listicle
+vendor_partner
+unknown
+
+Use "company" only for the official website of the operating company itself.
+
+2. is_company_website
+
+true only when the domain itself is the official website of the operating company.
+
+false for directories, articles, media, communities, job sites,
+third-party profiles and other non-company sources.
+
+Use null when there is not enough evidence.
+
+3. matches_search_plan
+
+true only when the COMPANY ITSELF matches the core LinkAssist target:
+India + relevant B2B business type.
+
+Do not mark true merely because the page mentions a relevant company.
+
+Do not require founder-led or employee-count evidence when the supplied
+title/snippet cannot establish it. Do not invent it.
+
+Use false when the company clearly does not match.
+Use null when evidence is insufficient.
+
+4. reason_code
+
+Use a short snake_case reason such as:
+matches_business_type
+matches_location
+founder_led_signal
+small_company_signal
+directory_listing
+third_party_profile
+news_article
+listicle
+job_board
+community
+wrong_industry
+wrong_geo
+unrelated
+insufficient_evidence
+
+5. evidence
+
+Give a short evidence statement based ONLY on the supplied title and snippet.
+
+Never invent:
+- company size
+- founders
+- location
+- products
+- customers
+- technology usage
+
+When evidence is insufficient, leave evidence empty.
+
+IMPORTANT APPROVAL GUIDANCE
+
+A domain should only be considered a strong candidate when:
+- it is the company's own official website
+- it represents a real operating company
+- the company itself fits the core LinkAssist business categories
+- the evidence does not merely come from an article, directory or third-party listing
+
+Never turn a directory, listicle, news article, publication or community into
+a company prospect just because it mentions relevant companies.
+
+Only classify the domains listed below.
+Never invent domains.
+
+DOMAINS:
 
 ${lines.join("\n\n")}`;
 }
 
-export async function classifyCandidates(provider, userQuery, batch) {
-  const prompt = buildPrompt(userQuery, batch);
+export async function classifyCandidates(provider, { userQuery, searchPlan }, domains) {
+  const prompt = buildPrompt(userQuery, searchPlan, domains);
 
   const result = await provider.complete({
     prompt,
@@ -244,23 +395,22 @@ export async function classifyCandidates(provider, userQuery, batch) {
 
   try {
     const parsed = BatchSchema.parse(result.data);
-    const candidateUrls = new Set(
-      batch
-        .map((candidate) => normalizeCandidate(candidate))
-        .filter((candidate) => candidate.valid)
-        .map((candidate) => candidate.url),
+    const candidateDomains = new Set(
+      domains.map((candidate) => String(candidate.domain || "").toLowerCase()),
     );
-    const returnedUrls = new Set(
-      parsed.decisions
-        .map((decision) => normalizeCandidate({ url: decision.url }))
-        .filter((candidate) => candidate.valid)
-        .map((candidate) => candidate.url),
+    const returnedDomains = new Set(
+      parsed.decisions.map((decision) =>
+        String(decision.domain || "").toLowerCase(),
+      ),
     );
-    const missing = [...candidateUrls].filter((url) => !returnedUrls.has(url));
+    const missing = [...candidateDomains].filter(
+      (domain) => !returnedDomains.has(domain),
+    );
+
     if (missing.length > 0) {
       return {
         ok: false,
-        error: `relevance output missing ${missing.length} candidate decision(s)`,
+        error: `relevance output missing ${missing.length} domain decision(s)`,
         usage: result.usage || null,
         decisions: [],
       };
@@ -281,21 +431,126 @@ export async function classifyCandidates(provider, userQuery, batch) {
   }
 }
 
-function fallbackRelevance(providerName, reasonCode) {
+// Code-based final decision. The LLM only supplied facts.
+export function decideFromFacts(facts, { providerName, model } = {}) {
+  if (!facts) {
+    return {
+      status: "review",
+      relevant: false,
+      type: "unknown",
+      reason_code: "no-decision",
+      evidence: "",
+      provider: providerName,
+      model,
+    };
+  }
+
+  if (facts.is_company_website === false) {
+    return {
+      status: "rejected",
+      relevant: false,
+      type: facts.type,
+      reason_code: facts.reason_code || "not_company_website",
+      evidence: facts.evidence || "",
+      provider: providerName,
+      model,
+    };
+  }
+
+  if (EXCLUDED_TYPES.has(facts.type)) {
+    return {
+      status: "rejected",
+      relevant: false,
+      type: facts.type,
+      reason_code: facts.reason_code || facts.type,
+      evidence: facts.evidence || "",
+      provider: providerName,
+      model,
+    };
+  }
+
+  if (
+    facts.is_company_website === true &&
+    facts.matches_search_plan === true
+  ) {
+    return {
+      status: "approved",
+      relevant: true,
+      type: facts.type,
+      reason_code: facts.reason_code || "matches_search_plan",
+      evidence: facts.evidence || "",
+      provider: providerName,
+      model,
+    };
+  }
+
+  if (facts.matches_search_plan === false) {
+    return {
+      status: "rejected",
+      relevant: false,
+      type: facts.type,
+      reason_code: facts.reason_code || "not_matching_search_plan",
+      evidence: facts.evidence || "",
+      provider: providerName,
+      model,
+    };
+  }
+
   return {
-    status: "fallback",
-    relevant: true,
-    score: null,
-    type: null,
-    reason_code: reasonCode,
-    confidence: null,
+    status: "review",
+    relevant: false,
+    type: facts.type,
+    reason_code: facts.reason_code || "insufficient_evidence",
+    evidence: facts.evidence || "",
     provider: providerName,
-    model: null,
+    model,
+  };
+}
+
+function reviewDecision(reasonCode) {
+  return {
+    status: "review",
+    relevant: false,
+    type: "unknown",
+    reason_code: reasonCode,
+    evidence: "",
+  };
+}
+
+function groupByDomain(candidates) {
+  const map = new Map();
+
+  for (const candidate of candidates) {
+    const domain = candidate.domain;
+
+    if (!map.has(domain)) {
+      map.set(domain, []);
+    }
+
+    map.get(domain).push(candidate);
+  }
+
+  return map;
+}
+
+function representativeFor(candidates) {
+  const withText = candidates.find(
+    (c) => c.title || c.snippet,
+  );
+
+  const candidate = withText || candidates[0];
+
+  return {
+    domain: candidate.domain,
+    title: candidate.title || "",
+    snippet: candidate.snippet || "",
+    url: candidate.url,
   };
 }
 
 export async function rankCandidates({
   userQuery,
+  searchPlan = null,
   candidates,
   provider,
   threshold = config.openaiRelevanceThreshold,
@@ -303,9 +558,7 @@ export async function rankCandidates({
   const { accepted, rejected } = deterministicFilter(candidates);
 
   const providerName = provider?.name || "disabled";
-
   const model = modelNameFor(providerName);
-
   const llmAvailable =
     provider && provider.name !== "disabled" && config.relevanceEnabled;
 
@@ -313,6 +566,7 @@ export async function rankCandidates({
     return {
       approved: [],
       rejected,
+      review: [],
       provider: providerName,
       model: llmAvailable ? model : null,
       relevanceStatus: "none",
@@ -320,130 +574,110 @@ export async function rankCandidates({
     };
   }
 
+  // Judge by root domain: one verdict applies to every URL on that domain.
+  const domainGroups = groupByDomain(accepted);
+
   if (!llmAvailable) {
-    const blocked = accepted.map((candidate) => ({
-      ...candidate,
-      relevance: {
-        status: "llm-required",
-        relevant: false,
-        score: null,
-        type: "unknown",
-        reason_code: "llm-unavailable",
-        confidence: null,
-        provider: providerName,
-        model: null,
-      },
-    }));
+    const review = [];
+
+    for (const domainCandidates of domainGroups.values()) {
+      for (const candidate of domainCandidates) {
+        review.push({
+          ...candidate,
+          relevance: {
+            ...reviewDecision("llm-unavailable"),
+            provider: providerName,
+            model: null,
+          },
+        });
+      }
+    }
 
     return {
       approved: [],
-      rejected: [...rejected, ...blocked],
+      rejected,
+      review,
       provider: providerName,
       model: null,
-      relevanceStatus: "blocked",
+      relevanceStatus: "review",
       decisions: [],
     };
   }
 
   const decisions = [];
-  let failed = false;
+  const domainBatches = [];
+  const domainList = [...domainGroups.keys()];
 
-  for (let i = 0; i < accepted.length; i += config.relevanceBatchSize) {
-    const batch = accepted.slice(i, i + config.relevanceBatchSize);
+  for (let i = 0; i < domainList.length; i += config.relevanceBatchSize) {
+    const batchDomains = domainList.slice(i, i + config.relevanceBatchSize);
+    const batchRepresentatives = batchDomains.map((domain) =>
+      representativeFor(domainGroups.get(domain)),
+    );
 
-    const result = await classifyCandidates(provider, userQuery, batch);
+    // Retry a failed batch once; if it still fails, only that batch goes to
+    // review and the remaining batches continue to be processed.
+    let result = await classifyCandidates(provider, { userQuery, searchPlan }, batchRepresentatives);
+
+    if (!result.ok) {
+      result = await classifyCandidates(provider, { userQuery, searchPlan }, batchRepresentatives);
+    }
 
     if (result.ok) {
       decisions.push(...result.decisions);
     } else {
-      failed = true;
-      break;
+      for (const representative of batchRepresentatives) {
+        decisions.push({
+          domain: representative.domain,
+          type: "unknown",
+          is_company_website: null,
+          matches_search_plan: null,
+          reason_code: "llm-unavailable",
+          evidence: "",
+        });
+      }
     }
   }
 
-  if (failed || !decisions.length) {
-    const approved = accepted.map((candidate) => ({
-      ...candidate,
-      relevance: fallbackRelevance(providerName, "llm-unavailable"),
-    }));
-
-    return {
-      approved,
-      rejected,
-      provider: providerName,
-      model,
-      relevanceStatus: "fallback",
-      decisions,
-    };
-  }
-
-  const decisionByUrl = new Map(
-    decisions
-      .map((decision) => {
-        const normalized = normalizeCandidate({ url: decision.url });
-        return normalized.valid ? [normalized.url, decision] : null;
-      })
-      .filter(Boolean),
+  const decisionByDomain = new Map(
+    decisions.map((decision) => [
+      String(decision.domain || "").toLowerCase(),
+      decision,
+    ]),
   );
 
   const approved = [];
   const llmRejected = [];
+  const review = [];
 
-  for (const candidate of accepted) {
-    const decision = decisionByUrl.get(candidate.url);
+  for (const domainCandidates of domainGroups.values()) {
+    const decision = decisionByDomain.get(String(domainCandidates[0].domain).toLowerCase());
 
-    if (!decision) {
-      llmRejected.push({
+    const relevance = decideFromFacts(decision, { providerName, model });
+
+    for (const candidate of domainCandidates) {
+      const withRelevance = {
         ...candidate,
         relevance: {
-          status: "no-decision",
-          relevant: false,
-          score: null,
-          type: "unknown",
-          reason_code: "no-decision",
-          confidence: null,
+          ...relevance,
           provider: providerName,
           model,
         },
-      });
-      continue;
-    }
+      };
 
-    const approvedByScore = decision.score >= threshold;
-
-    const relevant = decision.relevant && approvedByScore;
-
-    const relevance = {
-      status: relevant
-        ? "approved"
-        : decision.relevant
-          ? "below-threshold"
-          : "rejected",
-      relevant,
-      score: decision.score,
-      type: decision.type,
-      reason_code: decision.reason_code,
-      confidence: decision.confidence,
-      provider: providerName,
-      model,
-    };
-
-    if (relevant) {
-      approved.push({
-        ...candidate,
-        relevance,
-      });
-    } else {
-      llmRejected.push({
-        ...candidate,
-        relevance,
-      });
+      if (relevance.status === "approved") {
+        approved.push(withRelevance);
+      } else if (relevance.status === "rejected") {
+        llmRejected.push(withRelevance);
+      } else {
+        review.push(withRelevance);
+      }
     }
   }
 
   return {
     approved,
     rejected: [...rejected, ...llmRejected],
+    review,
     provider: providerName,
     model,
     relevanceStatus: "classified",

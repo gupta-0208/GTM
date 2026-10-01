@@ -3,25 +3,33 @@ import { load } from "cheerio";
 import {
   ROLE_HINT,
   dedupeContacts,
+  isRoleEmail,
   normalizeContact,
+  normalizePhone,
   parseNameTitleLine,
 } from "../contact.js";
 
+import {
+  isPlausibleName,
+} from "../../lib/names.js";
+
+// Specific card containers, matched by full class *token* (not substring) so
+// that "team-member" is recognised but "steam", "teamwork", "biohazard" and
+// similar false positives are not. Generic "lead"/"bio"/"profile"/"service"
+// selectors are intentionally absent.
 const CARD_SELECTOR = [
-  "[class*='team']",
-  "[class*='member']",
-  "[class*='person']",
-  "[class*='profile']",
-  "[class*='staff']",
-  "[class*='leadership']",
-  "[class*='author']",
-  "[class*='founder']",
-  "[class*='bio']",
-  "[class*='executive']",
-  "[class*='director']",
-  "[class*='lead']",
-  "[class*='people']",
-  "[class*='employee']",
+  "[class~='team']",
+  "[class~='team-member']",
+  "[class~='member']",
+  "[class~='person']",
+  "[class~='people']",
+  "[class~='staff']",
+  "[class~='leadership']",
+  "[class~='founder']",
+  "[class~='founders']",
+  "[class~='executive']",
+  "[class~='director']",
+  "[class~='employee']",
   "[itemtype*='Person']",
 ].join(",");
 
@@ -32,15 +40,17 @@ const NAME_SELECTOR = [
   "h4",
   "h5",
   "h6",
-  "[class*='name']",
+  "[class~='name']",
   "[itemprop='name']",
 ].join(",");
 
 const TITLE_SELECTOR = [
-  "[class*='title']",
-  "[class*='role']",
-  "[class*='position']",
-  "[class*='job-title']",
+  "[class~='title']",
+  "[class~='role']",
+  "[class~='position']",
+  "[class~='job-title']",
+  "[class~='jobtitle']",
+  "[class~='designation']",
   "[itemprop='jobTitle']",
 ].join(",");
 
@@ -98,7 +108,8 @@ function extractPersonFromElement($, element, url) {
   let name = clean($el.find(NAME_SELECTOR).first().text());
 
   if (!name) {
-    const aria = $el.attr("aria-label") ||
+    const aria =
+      $el.attr("aria-label") ||
       $el.find("[aria-label]").first().attr("aria-label");
 
     name = clean(aria);
@@ -107,12 +118,22 @@ function extractPersonFromElement($, element, url) {
   let title = clean($el.find(TITLE_SELECTOR).first().text());
 
   if (!title) {
-    const hinted = $el
-      .find("p, span, div")
-      .filter((_, el) => ROLE_HINT.test($(el).text()))
-      .first();
+    let fallback = "";
 
-    title = clean(hinted.text());
+    $el.find("p, span, div").each((_, el) => {
+      const text = clean($(el).text());
+
+      if (
+        text &&
+        text.length <= 60 &&
+        ROLE_HINT.test(text)
+      ) {
+        fallback = text;
+        return false;
+      }
+    });
+
+    title = fallback;
   }
 
   let email = "";
@@ -122,11 +143,11 @@ function extractPersonFromElement($, element, url) {
   const tel = $el.find("a[href^='tel:']").first();
 
   if (mailto.length) {
-    email = mailto.attr("href").replace(/^mailto:/i, "").trim();
+    email = clean(mailto.attr("href").replace(/^mailto:/i, ""));
   }
 
   if (tel.length) {
-    phone = tel.attr("href").replace(/^tel:/i, "").trim();
+    phone = clean(tel.attr("href").replace(/^tel:/i, ""));
   }
 
   const profile_urls = [];
@@ -138,6 +159,15 @@ function extractPersonFromElement($, element, url) {
       profile_urls.push(href);
     }
   });
+
+  // A person requires a plausible name; role mailboxes never create people.
+  if (!isPlausibleName(name)) {
+    return null;
+  }
+
+  if (email && isRoleEmail(email)) {
+    email = "";
+  }
 
   if (!name && !email && !phone) {
     return null;
@@ -173,7 +203,12 @@ function extractAuthorByline($) {
       return parsed;
     }
 
-    if (text && text.length <= 80 && !text.includes("@")) {
+    if (
+      text &&
+      text.length <= 80 &&
+      !text.includes("@") &&
+      isPlausibleName(text)
+    ) {
       return { name: text, title: "" };
     }
   }
@@ -195,10 +230,14 @@ export function deterministicContactExtract(archetype, html, url) {
     }
 
     for (const person of collectPersonJsonLd(data)) {
+      if (!isPlausibleName(person.name)) {
+        continue;
+      }
+
       candidates.push({
         full_name: person.name,
         title: person.jobTitle,
-        email: person.email,
+        email: isRoleEmail(person.email) ? "" : person.email,
         phone: person.telephone,
         profile_urls: person.url ? [person.url] : [],
         source_url: url,
@@ -206,28 +245,31 @@ export function deterministicContactExtract(archetype, html, url) {
     }
   });
 
-  const seen = new Set();
+  // Process only leaf-most contact cards: a container that wraps other cards
+  // is not itself a person, so we skip it and keep the inner cards only.
+  const cardElements = [];
 
   $(CARD_SELECTOR).each((_, element) => {
+    cardElements.push(element);
+  });
+
+  const leafCards = cardElements.filter(
+    (element) => $(element).find(CARD_SELECTOR).length === 0,
+  );
+
+  const seen = new Set();
+
+  for (const element of leafCards) {
     const person = extractPersonFromElement($, element, url);
 
     if (person) {
       candidates.push(person);
       seen.add(element);
     }
-  });
+  }
 
   $("a[href^='mailto:'], a[href^='tel:']").each((_, anchor) => {
-    let inside = false;
-
-    $(anchor).parents().each((_, parent) => {
-      if (seen.has(parent)) {
-        inside = true;
-        return false;
-      }
-    });
-
-    if (inside) {
+    if ($(anchor).parents(CARD_SELECTOR).length > 0) {
       return;
     }
 
@@ -235,7 +277,7 @@ export function deterministicContactExtract(archetype, html, url) {
     const person = extractPersonFromElement(
       $,
       container.length ? container : anchor,
-      url
+      url,
     );
 
     if (!person) {
@@ -245,7 +287,9 @@ export function deterministicContactExtract(archetype, html, url) {
     const href = $(anchor).attr("href") || "";
 
     if (href.startsWith("mailto:")) {
-      person.email = person.email || href.slice(7);
+      const email = href.slice(7);
+
+      person.email = isRoleEmail(email) ? "" : email;
     }
 
     if (href.startsWith("tel:")) {
@@ -258,13 +302,14 @@ export function deterministicContactExtract(archetype, html, url) {
       if (
         anchorText &&
         !anchorText.includes("@") &&
-        !/^\+?[0-9()\s.-]+$/.test(anchorText)
+        !/^\+?[0-9()\s.-]+$/.test(anchorText) &&
+        isPlausibleName(anchorText)
       ) {
         person.full_name = anchorText;
       }
     }
 
-    if (person.full_name || person.email || person.phone) {
+    if (isPlausibleName(person.full_name)) {
       candidates.push(person);
     }
   });
@@ -283,6 +328,37 @@ export function deterministicContactExtract(archetype, html, url) {
   }
 
   return dedupeContacts(
-    candidates.map((c) => normalizeContact(c))
-  ).filter((c) => c.full_name || c.email || c.phone);
+    candidates
+      .map((c) => normalizeContact(c))
+      .filter((c) => isPlausibleName(c.full_name) || c.email || c.phone),
+  );
+}
+
+// Company-level contact info (role mailboxes + company phones) that must not
+// be turned into person records.
+export function extractCompanyContacts(html, url) {
+  const $ = load(html || "");
+  const roleEmails = new Set();
+  const phones = new Set();
+
+  $("a[href^='mailto:']").each((_, a) => {
+    const email = clean($(a).attr("href").replace(/^mailto:/i, ""));
+
+    if (isRoleEmail(email)) {
+      roleEmails.add(email.toLowerCase());
+    }
+  });
+
+  $("a[href^='tel:']").each((_, a) => {
+    const phone = normalizePhone($(a).attr("href").replace(/^tel:/i, ""));
+
+    if (phone) {
+      phones.add(phone);
+    }
+  });
+
+  return {
+    role_emails: [...roleEmails],
+    company_phones: [...phones],
+  };
 }

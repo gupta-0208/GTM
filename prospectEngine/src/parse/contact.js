@@ -1,4 +1,33 @@
+import { isPlausibleName } from "../lib/names.js";
+
 const EMAIL_RE = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i;
+
+// Role/group mailboxes that never represent an individual person. These must
+// not create people and must not be used as a person's identity key.
+const ROLE_EMAIL_LOCAL_RE =
+  /^(info|information|sales|support|contact|contactus|contact-us|hr|humanresources|careers|career|jobs|recruitment|recruiting|hello|office|admin|administration|marketing|press|media|billing|accounts?|accounts?payable|enquir(y|ies)|inquir(y|ies)|reception|frontdesk|business|team|general|help|service|services|partners?|privacy|legal|security|webmaster|postmaster|no.?reply|donotreply|apply|applications|customercare|customerservice|feedback|complaints?|abuse|investors?|investorrelations|advertising|editorial|newsroom|corporate|headquarters|info@)/i;
+
+function roleEmailLocalPart(email) {
+  const value = String(email || "").trim().toLowerCase();
+
+  if (!value || !value.includes("@")) {
+    return null;
+  }
+
+  return value
+    .split("@")[0]
+    .replace(/[._+-]/g, "");
+}
+
+export function isRoleEmail(raw) {
+  const local = roleEmailLocalPart(raw);
+
+  if (!local) {
+    return false;
+  }
+
+  return ROLE_EMAIL_LOCAL_RE.test(local);
+}
 
 // Signals that a text fragment reads like a job title. Used both to bucket
 // roles and to decide whether a "name — title" split is actually a title.
@@ -101,6 +130,10 @@ export function parseNameTitleLine(line) {
     return null;
   }
 
+  if (!isPlausibleName(name)) {
+    return null;
+  }
+
   return { name, title };
 }
 
@@ -109,18 +142,21 @@ export function computeContactConfidence(contact) {
     return 0;
   }
 
+  // Confidence measures validity, not field count: a person needs a plausible
+  // name, and contact details only count when they are valid (a role mailbox
+  // is not a person's email).
   let score = 0;
 
-  if (contact.full_name) {
+  if (contact.full_name && isPlausibleName(contact.full_name)) {
     score += 0.35;
   }
 
-  if (contact.email) {
+  if (contact.email && !isRoleEmail(contact.email)) {
     score += 0.25;
   }
 
   if (contact.phone) {
-    score += 0.2;
+    score += 0.15;
   }
 
   if (contact.title) {

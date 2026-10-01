@@ -1,3 +1,4 @@
+import { LINKASSIST_ICP } from "../icp/linkassist.js";
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 
@@ -100,135 +101,40 @@ function cleanQueries(queries) {
 }
 
 function fallbackQueries(userQuery) {
-  const query =
-    userQuery.trim();
-
   return {
-    target_description: query,
-    location: "",
-    industry: "",
-    company_type: "company",
-    product_or_technology: "",
-    relationship: "unknown",
+    target_description:
+      `India-based founder-led small B2B companies that could benefit from LinkedIn content and personal-brand assistance. Request: ${userQuery.trim()}`,
 
-    search_queries:
-      cleanQueries([
-        query,
-        `${query} companies`,
-        `${query} company`,
-        `${query} businesses`,
-        `${query} official website`,
-      ]),
+    location: "India",
+
+    industry:
+      "B2B SaaS, agencies, consulting, coaching, professional services, IT/software services",
+
+    company_type:
+      "founder-led small B2B company",
+
+    product_or_technology:
+      "LinkedIn content, personal branding, content creation",
+
+    relationship: "needs",
+
+    search_queries: cleanQueries([
+      '"B2B SaaS" founder India company',
+      '"software company" founder India',
+      '"marketing agency" founder India',
+      '"AI agency" founder India',
+      '"consulting firm" founder India',
+      '"business consultant" India founder',
+      '"business coach" India',
+      '"IT services" founder India',
+    ]),
   };
 }
 
-export async function generateSearchPlan(
-  userQuery
-) {
-  if (
-    !userQuery ||
-    !userQuery.trim()
-  ) {
-    throw new Error(
-      "USER_QUERY cannot be empty."
-    );
+export async function generateSearchPlan(userQuery) {
+  if (!userQuery || !userQuery.trim()) {
+    throw new Error("USER_QUERY cannot be empty.");
   }
 
-  if (!config.llmEnabled) {
-    return fallbackQueries(
-      userQuery
-    );
-  }
-
-  const ai = new GoogleGenAI({
-    apiKey: config.geminiApiKey,
-  });
-
-  const prompt = `
-You are the search discovery planner for a B2B company discovery system.
-
-Understand the user's requirement and create a structured search plan.
-
-Identify:
-- target companies
-- geography
-- industry
-- company type
-- product or technology
-- relationship
-- useful web search queries
-
-Rules:
-- Never invent companies.
-- Never invent domains.
-- Never return URLs.
-- Do not claim a company actually uses a product.
-- Only create search queries.
-- Generate 5 to 8 useful queries.
-- Use different search wording.
-- Search for actual company websites.
-- Keep queries concise.
-- Use normal search-engine syntax.
-
-User requirement:
-${userQuery}
-`;
-
-  try {
-    const interaction =
-      await ai.interactions.create({
-        model: config.geminiModel,
-
-        input: prompt,
-
-        response_format: {
-          type: "text",
-          mime_type:
-            "application/json",
-          schema:
-            SEARCH_PLAN_JSON_SCHEMA,
-        },
-      });
-
-    if (
-      !interaction.output_text
-    ) {
-      throw new Error(
-        "Gemini returned an empty response."
-      );
-    }
-
-    const parsed =
-      JSON.parse(
-        interaction.output_text
-      );
-
-    const validated =
-      SearchPlanSchema.parse(
-        parsed
-      );
-
-    return {
-      ...validated,
-
-      search_queries:
-        cleanQueries(
-          validated.search_queries
-        ),
-    };
-  } catch (error) {
-    console.error(
-      "Gemini query generation failed:"
-    );
-
-    console.error(error.message);
-
-    console.log(
-      "Using fallback query generation."
-    );
-
-    return fallbackQueries(
-      userQuery
-    );
-  }
+  return fallbackQueries(userQuery);
 }

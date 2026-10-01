@@ -49,6 +49,10 @@ import {
   markRawPageParsed,
 } from "../storage/pgStore.js";
 
+import {
+  qualifyCompany,
+} from "../qualification/qualify.js";
+
 const TIER1_THRESHOLD = 0.8;
 const TIER2_THRESHOLD = 0.75;
 const PROMOTE_THRESHOLD = 0.6;
@@ -158,8 +162,25 @@ export async function extractPage(page, { provider, jina } = {}) {
   return result;
 }
 
-export async function parseAndPersist(page, { provider, jina, version } = {}) {
+export async function parseAndPersist(
+  page,
+  { provider, jina, version, searchPlan = null } = {}
+) {
   const result = await extractPage(page, { provider, jina });
+
+  let qualificationStatus = null;
+  let qualificationReasons = null;
+
+  if (result.payload && result.recordType === "company") {
+    const qualification = qualifyCompany({
+      profile: result.payload,
+      searchPlan,
+      domain: page.domain,
+    });
+
+    qualificationStatus = qualification.status;
+    qualificationReasons = qualification.reasons;
+  }
 
   if (result.payload) {
     await insertRawRecord({
@@ -170,6 +191,8 @@ export async function parseAndPersist(page, { provider, jina, version } = {}) {
       confidence: result.confidence,
       page_id: page.id,
       status: statusForConfidence(result.confidence),
+      qualification_status: qualificationStatus,
+      qualification_reasons: qualificationReasons,
     });
   }
 
@@ -180,6 +203,7 @@ export async function parseAndPersist(page, { provider, jina, version } = {}) {
     recordStatus: result.payload
       ? statusForConfidence(result.confidence)
       : null,
+    qualificationStatus,
     persisted: Boolean(result.payload),
     pageId: page.id,
   };
@@ -262,15 +286,20 @@ export async function parseCompanyContacts({
   provider,
   jina,
   version,
+  pages: providedPages = null,
   limit = 200,
 } = {}) {
-  const pages = (
-    await getRawPagesForDomain(domain, { limit })
-  ).filter(
-    (page) =>
-      page.parse_version == null ||
-      page.parse_version < version
-  );
+  const fetched =
+    providedPages ??
+    (await getRawPagesForDomain(domain, { limit }));
+
+  const pages = providedPages
+    ? fetched
+    : fetched.filter(
+        (page) =>
+          page.parse_version == null ||
+          page.parse_version < version
+      );
 
   const pageById = new Map(pages.map((page) => [page.id, page]));
 

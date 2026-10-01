@@ -51,6 +51,8 @@ export function emptyCompanyPayload() {
     products_services: [],
     technology_signals: [],
     company_description: "",
+    role_emails: [],
+    company_phones: [],
   };
 }
 
@@ -58,6 +60,8 @@ export function buildCompanyPayload({
   companyName = "",
   description = "",
   text = "",
+  roleEmails = [],
+  companyPhones = [],
 }) {
   const technologies = scanKeywords(text, TECH_KEYWORDS);
   const products = scanKeywords(text, PRODUCT_KEYWORDS);
@@ -79,6 +83,8 @@ export function buildCompanyPayload({
       })
     ),
     company_description: String(description || "").trim(),
+    role_emails: [...new Set(roleEmails || [])],
+    company_phones: [...new Set(companyPhones || [])],
   };
 }
 

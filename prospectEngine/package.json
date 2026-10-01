@@ -18,6 +18,7 @@
     "test:dedup": "node test/crossSourceDedupe.test.js",
     "test:discovery": "node test/discovery.test.js",
     "test:relevance": "node test/relevance.test.js",
+    "test:eval": "node test/eval.test.js",
     "test:health": "node test/health.test.js",
     "test:api": "node test/api.test.js"
   },

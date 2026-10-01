@@ -1,0 +1,56 @@
+[
+  {
+    "domain": "zoominfo.com",
+    "title": "Top Companies Using SAP – List of SAP Companies",
+    "snippet": "List of SAP-using companies in India by revenue.",
+    "expected": "blocked"
+  },
+  {
+    "domain": "theirstack.com",
+    "title": "Companies that use SAP in India (3,865) | TheirStack.com",
+    "snippet": "Download list of 3,865 companies using SAP in India.",
+    "expected": "blocked"
+  },
+  {
+    "domain": "geeksforgeeks.org",
+    "title": "Which Companies are using SAP Software in india - GeeksforGeeks",
+    "snippet": "A list of SAP-using companies.",
+    "expected": "blocked"
+  },
+  {
+    "domain": "scribd.com",
+    "title": "List of Companies Using SAP in India",
+    "snippet": "The document lists the names of 75 companies.",
+    "expected": "blocked"
+  },
+  {
+    "domain": "sapstack.com",
+    "title": "List of SAP partner companies in India - SAP Stack",
+    "snippet": "List of official SAP partners in India.",
+    "expected": "blocked"
+  },
+  {
+    "domain": "erpresearch.com",
+    "title": "253 SAP Partners in India | ERP Research",
+    "snippet": "253 verified SAP partners in India.",
+    "expected": "blocked"
+  },
+  {
+    "domain": "saurenergy.com",
+    "title": "Hero Future Energies Adopts SAP S/4HANA to Power Digital Transformation",
+    "snippet": "News article about a solar company adopting SAP.",
+    "expected": "blocked"
+  },
+  {
+    "domain": "insidesap.asia",
+    "title": "About Us - InsideSAP Asia",
+    "snippet": "Independent media brand covering the SAP community.",
+    "expected": "blocked"
+  },
+  {
+    "domain": "acmesolar.com",
+    "title": "Acme Solar | Solar Panel Manufacturer in India",
+    "snippet": "Acme Solar manufactures solar panels and uses SAP ERP.",
+    "expected": "approved"
+  }
+]

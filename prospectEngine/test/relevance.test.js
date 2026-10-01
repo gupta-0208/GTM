@@ -3,8 +3,16 @@ import assert from "node:assert/strict";
 import {
   deterministicFilter,
   classifyCandidates,
+  decideFromFacts,
   rankCandidates,
 } from "../src/relevance/companyRelevance.js";
+
+import {
+  isBlockedDomain,
+  isListicleTitle,
+} from "../src/relevance/blocklist.js";
+
+import { config } from "../src/config.js";
 
 function candidate(url, extra = {}) {
   return {
@@ -15,14 +23,14 @@ function candidate(url, extra = {}) {
   };
 }
 
-function decision(url, { relevant = true, score = 0.9 } = {}) {
+function facts(domain, extra = {}) {
   return {
-    url,
-    relevant,
-    score,
-    type: relevant ? "company" : "directory",
-    reason_code: relevant ? "matches_industry" : "directory_listing",
-    confidence: 0.8,
+    domain,
+    type: extra.type || "company",
+    is_company_website: extra.is_company_website ?? true,
+    matches_search_plan: extra.matches_search_plan ?? true,
+    reason_code: extra.reason_code || "matches_industry",
+    evidence: extra.evidence || "solar company",
   };
 }
 
@@ -55,38 +63,54 @@ async function test(name, fn) {
 }
 
 async function main() {
-  await test("deterministic filter rejects malformed/assets/excluded/dupes", () => {
+  await test("blocklist suffix-matches root domains and subdomains", () => {
+    assert.equal(isBlockedDomain("linkedin.com"), true);
+    assert.equal(isBlockedDomain("jobs.linkedin.com"), true);
+    assert.equal(isBlockedDomain("blog.medium.com"), true);
+    assert.equal(isBlockedDomain("zoominfo.com"), true);
+    assert.equal(isBlockedDomain("stanford.edu"), true);
+    assert.equal(isBlockedDomain("acme.com"), false);
+  });
+
+  await test("obvious listicle titles are rejected before LLM", () => {
+    assert.equal(isListicleTitle("Top 10 Companies Using SAP"), true);
+    assert.equal(isListicleTitle("List of SAP Companies in India"), true);
+    assert.equal(isListicleTitle("Best 25 Solar Companies"), true);
+    assert.equal(isListicleTitle("Acme Solar — Renewable Energy"), false);
+  });
+
+  await test("deterministic filter rejects malformed/assets/blocked/listicle/dupes", () => {
     const { accepted, rejected } = deterministicFilter([
       { url: "not a url" },
       { url: "https://acme.com/report.pdf" },
-      { url: "https://linkedin.com/company/acme" },
-      { url: "https://acme.com/about" },
-      { url: "https://acme.com/about" },
+      { url: "https://jobs.linkedin.com/company/acme" },
+      { url: "https://acme.com/about", title: "Top 10 Solar Companies" },
+      { url: "https://acme.com/solar" },
       { url: "https://acme.com/solar" },
     ]);
 
-    assert.equal(accepted.length, 2);
+    assert.equal(accepted.length, 1);
+    assert.equal(accepted[0].url, "https://acme.com/solar");
 
     const reasons = rejected.map((r) => r.reason_code).sort();
     assert.ok(reasons.includes("malformed_url"));
     assert.ok(reasons.includes("non_html_asset"));
     assert.ok(reasons.includes("excluded_domain"));
+    assert.ok(reasons.includes("listicle_title"));
     assert.ok(reasons.includes("duplicate_url"));
   });
 
-  await test("classifyCandidates validates structured output", async () => {
+  await test("classifyCandidates validates facts-only structured output", async () => {
     const valid = fakeProvider(() => ({
       attempted: true,
       ok: true,
-      data: {
-        decisions: [decision("https://acme.com/about")],
-      },
+      data: { decisions: [facts("acme.com")] },
     }));
 
     const ok = await classifyCandidates(
       valid,
-      "solar companies",
-      [candidate("https://acme.com/about")]
+      { userQuery: "solar companies", searchPlan: null },
+      [{ domain: "acme.com", title: "", snippet: "", url: "https://acme.com" }],
     );
 
     assert.equal(ok.ok, true);
@@ -95,48 +119,40 @@ async function main() {
     const invalid = fakeProvider(() => ({
       attempted: true,
       ok: true,
-      data: { decisions: [{ url: "x" }] },
+      data: { decisions: [{ domain: "acme.com" }] },
     }));
 
     const bad = await classifyCandidates(
       invalid,
-      "solar companies",
-      [candidate("https://acme.com/about")]
+      { userQuery: "solar companies", searchPlan: null },
+      [{ domain: "acme.com", title: "", snippet: "", url: "https://acme.com" }],
     );
 
     assert.equal(bad.ok, false);
     assert.match(bad.error, /invalid relevance output/);
   });
 
-  await test("rankCandidates applies deterministic threshold", async () => {
-    const provider = fakeProvider(() => ({
-      attempted: true,
-      ok: true,
-      data: {
-        decisions: [
-          decision("https://acme.com/about", { score: 0.9 }),
-          decision("https://acme.com/blog", { score: 0.2 }),
-        ],
-      },
-    }));
-
-    const result = await rankCandidates({
-      userQuery: "solar companies",
-      candidates: [
-        candidate("https://acme.com/about"),
-        candidate("https://acme.com/blog"),
-      ],
-      provider,
-      threshold: 0.5,
-    });
-
-    assert.equal(result.relevanceStatus, "classified");
-    assert.equal(result.approved.length, 1);
-    assert.equal(result.approved[0].url, "https://acme.com/about");
-    assert.equal(result.approved[0].relevance.status, "approved");
+  await test("decideFromFacts: code decides, LLM score never qualifies", () => {
+    assert.equal(
+      decideFromFacts(facts("acme.com"), { providerName: "openai" }).status,
+      "approved",
+    );
+    assert.equal(
+      decideFromFacts(facts("acme.com", { is_company_website: false })).status,
+      "rejected",
+    );
+    assert.equal(
+      decideFromFacts(facts("acme.com", { type: "directory" })).status,
+      "rejected",
+    );
+    assert.equal(
+      decideFromFacts(facts("acme.com", { matches_search_plan: false })).status,
+      "rejected",
+    );
+    assert.equal(decideFromFacts(null).status, "review");
   });
 
-  await test("rankCandidates falls back when provider fails", async () => {
+  await test("rankCandidates fails closed when provider fails", async () => {
     const provider = fakeProvider(() => ({
       attempted: true,
       ok: false,
@@ -152,50 +168,112 @@ async function main() {
       provider,
     });
 
-    assert.equal(result.relevanceStatus, "fallback");
-    assert.equal(result.approved.length, 2);
+    assert.equal(result.approved.length, 0);
+    assert.equal(result.review.length, 2);
     assert.ok(
-      result.approved.every(
-        (c) => c.relevance.status === "fallback"
-      )
+      result.review.every(
+        (c) => c.relevance.status === "review",
+      ),
     );
   });
 
-  await test("rankCandidates batches candidates into one call", async () => {
-    const candidates = Array.from(
-      { length: 60 },
-      (_, i) =>
-        candidate(`https://acme${i}.com/about`)
-    );
+  await test("rankCandidates retries a failed batch once and continues others", async () => {
+    const originalBatchSize = config.relevanceBatchSize;
+    config.relevanceBatchSize = 1;
 
+    try {
+      const provider = fakeProvider((input) => {
+        if (/acme0\.com/.test(input.prompt)) {
+          return { attempted: true, ok: false, error: "boom" };
+        }
+
+        const match = input.prompt.match(/Domain: ([a-z0-9.-]+)/);
+        return {
+          attempted: true,
+          ok: true,
+          data: { decisions: [facts(match[1])] },
+        };
+      });
+
+      const result = await rankCandidates({
+        userQuery: "solar companies",
+        candidates: [
+          candidate("https://acme0.com/about"),
+          candidate("https://acme1.com/about"),
+          candidate("https://acme2.com/about"),
+        ],
+        provider,
+      });
+
+      // acme0 failed twice -> review; acme1/acme2 still approved.
+      assert.equal(result.approved.length, 2);
+      assert.equal(result.review.length, 1);
+      assert.equal(result.review[0].domain, "acme0.com");
+      assert.equal(result.review[0].relevance.reason_code, "llm-unavailable");
+    } finally {
+      config.relevanceBatchSize = originalBatchSize;
+    }
+  });
+
+  await test("rankCandidates judges by root domain, not individual URLs", async () => {
     const provider = fakeProvider(() => ({
       attempted: true,
       ok: true,
-      data: {
-        decisions: candidates.map((c) =>
-          decision(c.url)
-        ),
-      },
+      data: { decisions: [facts("acme.com")] },
     }));
+
+    const result = await rankCandidates({
+      userQuery: "solar companies",
+      candidates: [
+        candidate("https://acme.com/about"),
+        candidate("https://acme.com/team"),
+        candidate("https://acme.com/pricing"),
+      ],
+      provider,
+    });
+
+    assert.equal(result.approved.length, 3);
+    assert.equal(provider.calls.length, 1);
+    assert.ok(
+      result.approved.every((c) => c.relevance.status === "approved"),
+    );
+  });
+
+  await test("rankCandidates batches many domains into few LLM calls", async () => {
+    const candidates = Array.from(
+      { length: 60 },
+      (_, i) => candidate(`https://acme${i}.com/about`),
+    );
+
+    const provider = fakeProvider((input) => {
+      const domains = [...input.prompt.matchAll(/Domain: ([a-z0-9.-]+)/g)].map(
+        (m) => m[1],
+      );
+      return {
+        attempted: true,
+        ok: true,
+        data: { decisions: domains.map((d) => facts(d)) },
+      };
+    });
 
     const result = await rankCandidates({
       userQuery: "solar companies",
       candidates,
       provider,
-      threshold: 0.5,
     });
 
     assert.ok(provider.calls.length < candidates.length);
-    assert.ok(provider.calls.length >= 1);
     assert.equal(result.approved.length, 60);
   });
 
-  await test("rankCandidates preserves URL provenance", async () => {
+  await test("rankCandidates preserves URL provenance and facts", async () => {
     const provider = fakeProvider(() => ({
       attempted: true,
       ok: true,
       data: {
-        decisions: [decision("https://acme.com/about")],
+        decisions: [
+          facts("acme.com", { reason_code: "matches_industry", evidence: "solar" }),
+        ],
       },
     }));
 
@@ -218,12 +296,13 @@ async function main() {
     assert.equal(approved.domain, "acme.com");
     assert.equal(approved.relevance.provider, "openai");
     assert.equal(approved.relevance.reason_code, "matches_industry");
+    assert.equal(approved.relevance.evidence, "solar");
   });
 
   console.log("");
   const failed = results.filter((r) => !r.ok);
   console.log(
-    `Passed ${results.length - failed.length}/${results.length}`
+    `Passed ${results.length - failed.length}/${results.length}`,
   );
 
   if (failed.length) {

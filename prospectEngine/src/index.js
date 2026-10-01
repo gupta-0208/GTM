@@ -321,6 +321,7 @@ async function main() {
   const extraction =
     await runExtraction({
       version,
+      searchPlan: discovery.searchPlan,
     });
 
   // 5. Read back and report.

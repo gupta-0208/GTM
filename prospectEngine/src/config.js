@@ -131,8 +131,10 @@ export const config = {
   llmEnabled:
     booleanEnv("LLM_ENABLED", false),
 
+  // Gemini is reserved for query generation only (see queryGenerator.js).
+  // Relevance/qualification/LLM extraction run on OpenAI GPT-4o-mini.
   llmProvider:
-    process.env.LLM_PROVIDER || "gemini",
+    process.env.LLM_PROVIDER || "openai",
 
   llmGeminiModel:
     process.env.LLM_GEMINI_MODEL ||

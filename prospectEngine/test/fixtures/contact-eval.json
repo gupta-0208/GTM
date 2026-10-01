@@ -1,0 +1,32 @@
+[
+  {
+    "name": "nav-heavy page produces no people",
+    "html": "<html><body><nav><a href=\"/\">Home</a><a href=\"/about\">About</a><a href=\"/contact\">Contact Us</a><a href=\"/careers\">Careers</a></nav><footer><a href=\"mailto:info@acme.com\">info@acme.com</a></footer></body></html>",
+    "expected_people": 0,
+    "expected_role_emails": ["info@acme.com"]
+  },
+  {
+    "name": "section heading label is not a person name",
+    "html": "<html><body><div class=\"team\"><h3>Our Team</h3><p>We work hard every day.</p></div></body></html>",
+    "expected_people": 0,
+    "expected_role_emails": []
+  },
+  {
+    "name": "button label inside a member card is not a name",
+    "html": "<html><body><div class=\"member\"><button>Read More</button><a href=\"mailto:sales@acme.com\">sales@acme.com</a></div></body></html>",
+    "expected_people": 0,
+    "expected_role_emails": ["sales@acme.com"]
+  },
+  {
+    "name": "real team card produces one plausible person",
+    "html": "<html><body><div class=\"team-member\"><h3>Jane Doe</h3><span class=\"role\">Chief Executive Officer</span><a href=\"mailto:jane@acme.com\">jane@acme.com</a><a href=\"tel:+15551234567\">Call</a></div></body></html>",
+    "expected_people": 1,
+    "expected_role_emails": []
+  },
+  {
+    "name": "leaf-most card wins over wrapping container",
+    "html": "<html><body><div class=\"team\"><div class=\"team-member\"><h3>Alice Johnson</h3><span class=\"role\">Co-Founder</span><a href=\"mailto:alice@acme.com\">alice@acme.com</a></div><div class=\"team-member\"><h3>Bob Brown</h3><span class=\"role\">VP Sales</span><a href=\"mailto:bob@acme.com\">bob@acme.com</a></div></div></body></html>",
+    "expected_people": 2,
+    "expected_role_emails": []
+  }
+]

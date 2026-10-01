@@ -8,6 +8,10 @@ import {
   domainFromUrl,
 } from "../company.js";
 
+import {
+  extractCompanyContacts,
+} from "./contact.js";
+
 function clean(value) {
   return String(value || "")
     .replace(/\s+/g, " ")
@@ -45,15 +49,22 @@ function resolveDescription($) {
   );
 }
 
-function extractCompanyFromDom($, url) {
+function extractCompanyFromDom($, url, html) {
   const companyName = resolveCompanyName($, url);
   const description = resolveDescription($);
   const bodyText = $("body").text();
+
+  const companyContacts = extractCompanyContacts(
+    html,
+    url
+  );
 
   const payload = buildCompanyPayload({
     companyName,
     description,
     text: bodyText,
+    roleEmails: companyContacts.role_emails,
+    companyPhones: companyContacts.company_phones,
   });
 
   return {
@@ -69,5 +80,5 @@ export function deterministicExtract(archetype, html, url) {
 
   const $ = load(html || "");
 
-  return extractCompanyFromDom($, url);
+  return extractCompanyFromDom($, url, html || "");
 }
