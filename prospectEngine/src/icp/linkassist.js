@@ -70,10 +70,13 @@ function profileText(profile) {
   return [
     profile?.company_name,
     profile?.description,
+    profile?.company_description,
     profile?.industry,
+    ...(profile?.industries || []),
     profile?.business_type,
     profile?.company_type,
     profile?.services,
+    ...(profile?.products_services || []),
     profile?.products,
     profile?.title,
     profile?.snippet,

@@ -2,7 +2,7 @@ node_modules/
 .env
 
 output/
-storage/
+/prospectEngine/storage/
 
 npm-debug.log*
 .commandcode

@@ -19,6 +19,8 @@ export const QUEUES = {
   discovery: "discovery",
   crawl: "crawl",
   extraction: "extraction",
+  finder: "finder",
+  sourceHarvest: "source-harvest",
 };
 
 function queryJobId(query) {
@@ -48,7 +50,8 @@ export async function enqueueDiscovery(
   return q.add(
     "discover",
     { query: String(query || "").trim() },
-    { jobId: `discovery:${queryJobId(query)}` }
+    // BullMQ custom job IDs cannot contain the colon delimiter.
+    { jobId: `discovery-${queryJobId(query)}` }
   );
 }
 
@@ -74,23 +77,44 @@ export async function enqueueExtraction(
   });
 }
 
+export async function enqueueFinder(query, icp = null, { queue } = {}) {
+  assertRedisEnabled();
+
+  const q = queue ?? createQueue(QUEUES.finder);
+  const runId = crypto.randomUUID();
+  return q.add("finder", { query: String(query || "").trim(), icp }, {
+    jobId: `finder-${runId}`,
+  });
+}
+
+export async function enqueueSourceHarvest(icp, { queue } = {}) {
+  assertRedisEnabled();
+  const q = queue ?? createQueue(QUEUES.sourceHarvest);
+  return q.add("harvest-sources", { icp }, { jobId: `source-harvest-${crypto.randomUUID()}` });
+}
+
 export async function getJobStatus(jobId) {
   for (const name of Object.values(QUEUES)) {
     const queue = createQueue(name);
+    try {
+      const job = await queue.getJob(jobId);
 
-    const job = await queue.getJob(jobId);
-
-    if (job) {
-      return {
-        id: job.id,
-        name: job.name,
-        queue: name,
-        state: await job.getState(),
-        progress: job.progress,
-        attemptsMade: job.attemptsMade,
-        data: job.data,
-        failedReason: job.failedReason,
-      };
+      if (job) {
+        const state = await job.getState();
+        return {
+          id: job.id,
+          name: job.name,
+          queue: name,
+          state,
+          progress: job.progress,
+          attemptsMade: job.attemptsMade,
+          data: job.data,
+          result: state === "completed" ? job.returnvalue : null,
+          failedReason: job.failedReason,
+        };
+      }
+    } finally {
+      await queue.close();
     }
   }
 
@@ -134,10 +158,18 @@ export const processors = {
       version: job.data?.version ?? config.currentParseVersion,
     });
   },
+  async finder(job) {
+    const { runFinder } = await import("../finder.js");
+    return runFinder(job.data?.query, job.data?.icp, job);
+  },
+  [QUEUES.sourceHarvest]: async (job) => {
+    const { harvestProductSources } = await import("../sources/public/index.js");
+    return harvestProductSources(job.data?.icp, job);
+  },
 };
 
 export function startWorker({
-  queues = [QUEUES.discovery, QUEUES.crawl, QUEUES.extraction],
+  queues = [QUEUES.discovery, QUEUES.crawl, QUEUES.extraction, QUEUES.finder, QUEUES.sourceHarvest],
 } = {}) {
   const workers = [];
 

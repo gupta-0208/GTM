@@ -8,6 +8,8 @@
     "start": "node src/index.js",
     "api": "node src/bin/api.js",
     "worker": "node src/bin/worker.js",
+    "ui:dev": "npm --prefix dashboard run dev",
+    "ui:build": "npm --prefix dashboard run build",
     "migrate": "node src/storage/migrate.js",
     "import:legacy": "node src/storage/importLegacy.js",
     "test:parse": "node test/parse.test.js",
