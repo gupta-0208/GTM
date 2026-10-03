@@ -65,6 +65,14 @@ export const BLOCKED_DOMAINS = [
   "geeksforgeeks.org",
   "scribd.com",
   "pdfcoffee.com",
+  "theirstack.com",
+  "sapstack.com",
+  "erpresearch.com",
+  "saurenergy.com",
+  "insidesap.asia",
+  "zoominfo.com",
+  "builtwith.com",
+  "6sense.com",
 ];
 
 // Educational / government / institutional suffixes.

@@ -7,6 +7,8 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
     volumes:
       - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
       interval: 5s
@@ -18,18 +20,40 @@ services:
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redisdata:/data
+    ports:
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 10
 
+  migrate:
+    build: .
+    command: ["node", "src/storage/migrate.js"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:-}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-prospect_engine}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   searxng:
     image: searxng/searxng:latest
     environment:
       SEARXNG_BASE_URL: http://searxng:8080/
+      SEARXNG_SECRET: ${SEARXNG_SECRET:-local-dev-change-this-secret}
+      SEARXNG_SETTINGS_PATH: /etc/searxng/settings.yml
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
     ports:
-      - "8888:8080"
+      - "127.0.0.1:8888:8080"
 
   api:
     build: .
@@ -48,15 +72,19 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       SEARXNG_URL: http://searxng:8080
+      SEARXNG_ENGINES: ${SEARXNG_ENGINES:-google}
       LLM_ENABLED: ${LLM_ENABLED:-false}
       LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
+      OPENAI_ENABLED: ${OPENAI_ENABLED:-false}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      MAX_SEARCH_QUERIES: ${MAX_SEARCH_QUERIES:-8}
+      SEARXNG_QUERY_DELAY_MS: ${SEARXNG_QUERY_DELAY_MS:-15000}
       JINA_ENABLED: ${JINA_ENABLED:-false}
       JINA_API_KEY: ${JINA_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       CRAWLER_CONTACT_URL: ${CRAWLER_CONTACT_URL:-https://example.com/contact}
-      USER_QUERY: ${USER_QUERY:-Find Indian companies in the solar industry that use SAP}
+      USER_QUERY: ${USER_QUERY:-Find India-based founders, consultants, coaches, and agency owners at B2B service businesses who use LinkedIn to build authority and attract clients}
     ports:
       - "3000:3000"
     depends_on:
@@ -64,6 +92,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       searxng:
         condition: service_started
 
@@ -83,23 +113,45 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       SEARXNG_URL: http://searxng:8080
+      SEARXNG_ENGINES: ${SEARXNG_ENGINES:-google}
       LLM_ENABLED: ${LLM_ENABLED:-false}
       LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
+      OPENAI_ENABLED: ${OPENAI_ENABLED:-false}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      MAX_SEARCH_QUERIES: ${MAX_SEARCH_QUERIES:-8}
+      SEARXNG_QUERY_DELAY_MS: ${SEARXNG_QUERY_DELAY_MS:-15000}
       JINA_ENABLED: ${JINA_ENABLED:-false}
       JINA_API_KEY: ${JINA_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       CRAWLER_CONTACT_URL: ${CRAWLER_CONTACT_URL:-https://example.com/contact}
-      USER_QUERY: ${USER_QUERY:-Find Indian companies in the solar industry that use SAP}
+      USER_QUERY: ${USER_QUERY:-Find India-based founders, consultants, coaches, and agency owners at B2B service businesses who use LinkedIn to build authority and attract clients}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       searxng:
         condition: service_started
+
+  dashboard:
+    image: node:22-alpine
+    working_dir: /app
+    command: ["sh", "-c", "npm install && npm run dev -- --host 0.0.0.0"]
+    environment:
+      VITE_API_TARGET: http://api:3000
+    volumes:
+      - ./dashboard:/app
+      - dashboard_node_modules:/app/node_modules
+    ports:
+      - "127.0.0.1:5173:5173"
+    profiles: ["ui"]
+    depends_on:
+      - api
 
 volumes:
   pgdata:
   redisdata:
+  dashboard_node_modules:

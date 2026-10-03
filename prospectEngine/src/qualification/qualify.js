@@ -1,5 +1,5 @@
 // Code-based company qualification.
-// Combines the permanent LinkAssist ICP with the query-specific searchPlan.
+// Combines a product-specific ICP with the query-specific searchPlan.
 //
 // The LLM is NOT involved in this decision.
 // Qualification is deterministic and happens after company extraction.
@@ -12,7 +12,54 @@
 // IMPORTANT:
 // Unknown / insufficient evidence must never become "qualified".
 
-import { evaluateIcp } from "../icp/linkassist.js";
+
+const NON_COMPANY_RE = /\b(directory|aggregator|marketplace|listicle|job board|review site|newsroom|magazine|publication|blog|wiki|tutorial|university|college|academy|forum|classifieds?|conference|event|summit|exhibition|expo)\b/i;
+const INDIA_RE = /\b(india|indian)\b/i;
+const ICP_STOP_WORDS = new Set([
+  "the", "and", "for", "with", "from", "that", "this", "who", "which", "their", "your",
+  "company", "companies", "business", "businesses", "based", "looking", "target", "customer", "customers",
+]);
+
+function listValues(value) {
+  if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean);
+  return String(value || "").split(/[,;\n]/).map((item) => item.trim()).filter(Boolean);
+}
+
+function evaluateProductIcp(profile, icp) {
+  if (!profile?.company_name) {
+    return { status: "review", reasons: ["missing company name"], evidence: [] };
+  }
+
+  const text = profileText(profile).toLowerCase();
+  if (NON_COMPANY_RE.test(text)) {
+    return { status: "not_qualified", reasons: ["not a real operating company"], evidence: ["non-company signal detected"] };
+  }
+
+  const targetPhrases = [...new Set([
+    ...listValues(icp?.company_types || icp?.companyTypes),
+    ...listValues(icp?.industries),
+  ])];
+  if (!targetPhrases.length) {
+    return { status: "review", reasons: ["product ICP has no target company types or industries"], evidence: [] };
+  }
+
+  const exactMatches = targetPhrases.filter((phrase) => text.includes(phrase.toLowerCase()));
+  if (exactMatches.length) {
+    return { status: "qualified", reasons: [], evidence: [`matches target type: ${exactMatches.join(", ")}`] };
+  }
+
+  const terms = new Set(
+    targetPhrases.flatMap((phrase) => tokenize(phrase)).filter((term) => !ICP_STOP_WORDS.has(term)),
+  );
+  const matchedTerms = [...terms].filter((term) => text.includes(term));
+  if (matchedTerms.length >= 2) {
+    return { status: "qualified", reasons: [], evidence: [`matches target terms: ${matchedTerms.join(", ")}`] };
+  }
+  if (matchedTerms.length === 1) {
+    return { status: "review", reasons: ["partial match to product ICP"], evidence: [`matches target term: ${matchedTerms[0]}`] };
+  }
+  return { status: "not_qualified", reasons: ["does not match product ICP"], evidence: [] };
+}
 
 const STOP_WORDS = new Set([
   "the",
@@ -53,12 +100,88 @@ function tokenize(text) {
 function profileText(profile) {
   return [
     profile?.company_name,
+    profile?.description,
     profile?.company_description,
+    profile?.industry,
     ...(profile?.industries || []),
+    profile?.business_type,
+    profile?.company_type,
     ...(profile?.products_services || []),
+    profile?.location,
+    profile?.country,
+    profile?.headquarters,
+    profile?.city,
   ]
     .filter(Boolean)
     .join(" ");
+}
+
+function evaluateGeography(profile, icp, searchPlan, domain) {
+  const targets = [
+    ...listValues(icp?.geography || icp?.locations),
+    ...listValues(icp?.location),
+    ...listValues(searchPlan?.location),
+  ];
+  const target = targets[0];
+  if (!target) return { status: "qualified", reasons: [], evidence: [] };
+
+  const text = [
+    profile?.country,
+    profile?.headquarters,
+    profile?.location,
+    profile?.city,
+    profile?.description,
+    profile?.company_description,
+  ].filter(Boolean).join(" ");
+
+  const isIndia = /\bindia\b/i.test(target);
+  const phoneEvidence = isIndia && (profile?.company_phones || []).some((phone) => /^\s*\+91\b/.test(String(phone)));
+  const domainEvidence = isIndia && /(?:^|\.)[a-z0-9-]+\.in$/i.test(String(domain || ""));
+  const textEvidence = isIndia ? INDIA_RE.test(text) : new RegExp(`\\b${escapeRegExp(target)}\\b`, "i").test(text);
+
+  if (textEvidence || phoneEvidence || domainEvidence) {
+    const evidence = [
+      ...(textEvidence ? [`location mentions ${target}`] : []),
+      ...(phoneEvidence ? ["company phone uses India country code +91"] : []),
+      ...(domainEvidence ? ["company website uses the .in country domain"] : []),
+    ];
+    return { status: "qualified", reasons: [], evidence };
+  }
+
+  return {
+    status: "review",
+    reasons: [`no ${target} location evidence on the company profile`],
+    evidence: [],
+  };
+}
+
+function evaluateBuyerRole(profile, icp) {
+  const buyerRoles = listValues(icp?.buyer_roles || icp?.buyerRoles);
+  if (!buyerRoles.length) return { status: "qualified", reasons: [], evidence: [] };
+
+  const text = profileText(profile).toLowerCase();
+  const matched = buyerRoles.filter((role) => {
+    const words = role.toLowerCase().trim().split(/\s+/).map(escapeRegExp);
+    const escaped = words.join("\\s+").replace(/co-founder/i, "co[- ]?founder");
+    const plural = escaped.endsWith("y")
+      ? `${escaped.slice(0, -1)}(?:y|ies)`
+      : `${escaped}(?:s|es)?`;
+    return new RegExp(`\\b${plural}\\b`, "i").test(text);
+  });
+
+  if (matched.length) {
+    return {
+      status: "qualified",
+      reasons: [],
+      evidence: [`company profile mentions buyer role: ${matched.join(", ")}`],
+    };
+  }
+
+  return {
+    status: "review",
+    reasons: ["target buyer role is not identified on the company profile"],
+    evidence: [],
+  };
 }
 
 function searchPlanTerms(searchPlan) {
@@ -310,30 +433,26 @@ export function qualifyCompany({
   profile,
   searchPlan,
   domain,
+  icp = null,
 } = {}) {
-  void domain;
-
   const reasons = [];
   const evidence = [];
 
   //
-  // 1. Permanent LinkAssist ICP gate
+  // 1. Apply the active product ICP gate
   //
-  const icp =
-    evaluateIcp(
-      profile,
-    );
+  const icpResult = evaluateProductIcp(profile, icp || {});
 
   reasons.push(
-    ...(icp.reasons || []),
+    ...(icpResult.reasons || []),
   );
 
   evidence.push(
-    ...(icp.evidence || []),
+    ...(icpResult.evidence || []),
   );
 
   if (
-    icp.status ===
+    icpResult.status ===
     "not_qualified"
   ) {
     return {
@@ -373,12 +492,22 @@ export function qualifyCompany({
     };
   }
 
+  const geography = evaluateGeography(profile, icp || {}, searchPlan, domain);
+  reasons.push(...geography.reasons);
+  evidence.push(...geography.evidence);
+
+  const buyerRole = evaluateBuyerRole(profile, icp || {});
+  reasons.push(...buyerRole.reasons);
+  evidence.push(...buyerRole.evidence);
+
   //
   // Any uncertainty stays review.
   //
   if (
-    icp.status === "review" ||
-    plan.status === "review"
+    icpResult.status === "review" ||
+    plan.status === "review" ||
+    geography.status === "review" ||
+    buyerRole.status === "review"
   ) {
     return {
       status: "review",

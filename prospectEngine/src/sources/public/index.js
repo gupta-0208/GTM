@@ -1,0 +1,181 @@
+import net from "node:net";
+import { CheerioCrawler } from "crawlee";
+
+import { config } from "../../config.js";
+import { normalizeUrl } from "../../lib/url.js";
+import { generateSearchPlan } from "../../discovery/queryGenerator.js";
+import { upsertCrawlTargets, getEnabledProductSources, markProductSourceHarvested } from "../../storage/pgStore.js";
+import { crawlTargets } from "../../crawl/crawlers.js";
+import { runExtraction } from "../../pipeline.js";
+
+const EXCLUDED_DOMAINS = new Set([
+  "linkedin.com", "facebook.com", "instagram.com", "youtube.com", "x.com", "twitter.com",
+  "wikipedia.org", "crunchbase.com", "zoominfo.com", "apollo.io", "g2.com", "capterra.com",
+  "glassdoor.com", "indeed.com", "maps.google.com", "google.com", "play.google.com",
+  "apps.apple.com", "amazon.com", "flipkart.com",
+]);
+const INTERNAL_PATH_HINT = /\/(?:member|members|directory|companies|company|exhibitor|exhibitors|supplier|suppliers|vendor|vendors|listing|listings|profile|profiles|provider|providers)(?:\/|$)|\/page\/\d+|[?&](?:page|p)=\d+/i;
+const SKIP_PATH = /\.(?:jpg|jpeg|png|gif|webp|svg|pdf|css|js|zip|woff2?)(?:$|\?)/i;
+const MAX_INTERNAL_PAGES_PER_SOURCE = 12;
+const MAX_CANDIDATES_PER_SOURCE = 500;
+
+function hasPublicHost(hostname) {
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (!host || host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal")) return false;
+  const version = net.isIP(host);
+  if (version === 4) {
+    const octets = host.split(".").map(Number);
+    return !(octets[0] === 0 || octets[0] === 10 || octets[0] === 127 ||
+      (octets[0] === 169 && octets[1] === 254) ||
+      (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) ||
+      (octets[0] === 192 && octets[1] === 168));
+  }
+  if (version === 6) return !(host === "::1" || host.startsWith("fc") || host.startsWith("fd") || host.startsWith("fe80:"));
+  return true;
+}
+
+function isExcludedDomain(domain) {
+  return [...EXCLUDED_DOMAINS].some((excluded) => domain === excluded || domain.endsWith(`.${excluded}`));
+}
+
+function safeSourceUrl(raw) {
+  const normalized = normalizeUrl(raw);
+  if (!normalized) throw new Error("Source URL must use http or https.");
+  const parsed = new URL(normalized.normalizedUrl);
+  if (!hasPublicHost(parsed.hostname)) throw new Error("Source URL must use a public hostname.");
+  return { ...normalized, hostname: parsed.hostname };
+}
+
+export async function harvestProductSources(icp, job = null) {
+  const productId = String(icp?.id || "").trim();
+  const productName = String(icp?.name || "").trim();
+  if (!productId || !productName) throw new Error("A product profile is required to harvest sources.");
+
+  const sources = await getEnabledProductSources(productId);
+  if (!sources.length) throw new Error(`Add at least one public source URL for ${productName} first.`);
+
+  const sourceInfo = new Map();
+  const internalPages = new Map();
+  const sourceDomains = new Map();
+  const candidates = new Map();
+  const sourceErrors = new Map();
+  const requests = sources.map((source) => {
+    const normalized = safeSourceUrl(source.source_url);
+    sourceInfo.set(String(source.id), { ...source, hostname: normalized.hostname, sourceUrl: normalized.normalizedUrl });
+    internalPages.set(String(source.id), 0);
+    sourceDomains.set(String(source.id), new Set());
+    return {
+      url: normalized.normalizedUrl,
+      userData: { sourceId: String(source.id), sourceDepth: 0 },
+    };
+  });
+
+  await job?.updateProgress({ stage: "sources", detail: `Crawling ${sources.length} public source${sources.length === 1 ? "" : "s"}` });
+  const crawler = new CheerioCrawler({
+    maxRequestsPerCrawl: Math.min(sources.length * (MAX_INTERNAL_PAGES_PER_SOURCE + 1), 500),
+    maxConcurrency: Math.min(config.crawlMaxConcurrency, 4),
+    maxRequestsPerMinute: Math.min(config.crawlMaxRequestsPerMinute, 30),
+    maxRequestRetries: 1,
+    requestHandlerTimeoutSecs: config.crawlRequestTimeoutSecs,
+    respectRobotsTxtFile: true,
+    retryOnBlocked: false,
+    async requestHandler({ request, $, response, addRequests, log }) {
+      const sourceId = String(request.userData.sourceId);
+      const source = sourceInfo.get(sourceId);
+      if (!source) return;
+      const depth = Number(request.userData.sourceDepth || 0);
+      const contentType = String(response?.headers?.["content-type"] || "").toLowerCase();
+      if (contentType && !contentType.includes("text/html") && !contentType.includes("application/xhtml")) return;
+
+      const internal = [];
+      $("a[href]").each((_, element) => {
+        const anchor = $(element);
+        const href = anchor.attr("href");
+        if (!href) return;
+        let url;
+        try { url = new URL(href, request.loadedUrl || request.url); } catch { return; }
+        if (url.protocol !== "http:" && url.protocol !== "https:") return;
+        if (SKIP_PATH.test(url.pathname) || /\/login|\/signup|\/privacy|\/terms/i.test(url.pathname)) return;
+
+        const normalized = normalizeUrl(url.toString());
+        if (!normalized || !hasPublicHost(url.hostname)) return;
+        const title = anchor.text().replace(/\s+/g, " ").trim().slice(0, 300);
+
+        if (url.hostname.toLowerCase() === source.hostname.toLowerCase()) {
+          if (depth === 0 && INTERNAL_PATH_HINT.test(`${url.pathname}${url.search}`) && internalPages.get(sourceId) < MAX_INTERNAL_PAGES_PER_SOURCE) {
+            internalPages.set(sourceId, internalPages.get(sourceId) + 1);
+            internal.push({ url: normalized.normalizedUrl, userData: { sourceId, sourceDepth: 1 } });
+          }
+          return;
+        }
+
+        if (isExcludedDomain(normalized.domain) || normalized.domain === source.hostname) return;
+        const seenForSource = sourceDomains.get(sourceId);
+        if (seenForSource.has(normalized.domain) || seenForSource.size >= MAX_CANDIDATES_PER_SOURCE) return;
+        seenForSource.add(normalized.domain);
+        const existing = candidates.get(normalized.domain);
+        if (!existing || (!existing.title && title)) {
+          candidates.set(normalized.domain, {
+            domain: normalized.domain,
+            url: normalized.baseUrl,
+            baseUrl: normalized.baseUrl,
+            title,
+            anchorText: title,
+            sourceId,
+            parentUrl: request.loadedUrl || request.url,
+            matchedQueries: [productName, ...(icp.industries || []), ...(icp.company_types || [])].filter(Boolean),
+          });
+        }
+      });
+      if (internal.length) await addRequests(internal);
+      log.info(`Source ${sourceId}: collected links from ${request.url}`);
+    },
+    failedRequestHandler({ request, error }) {
+      sourceErrors.set(String(request.userData.sourceId), error?.message || "Source fetch failed");
+    },
+  });
+
+  await crawler.run(requests);
+  const targetList = [...candidates.values()].slice(0, Math.max(config.discoveryLimit, config.crawlMaxCandidates));
+  for (const source of sources) {
+    const id = String(source.id);
+    const count = sourceDomains.get(id)?.size || 0;
+    await markProductSourceHarvested({ sourceId: source.id, discoveredCount: count, error: sourceErrors.get(id) || null });
+  }
+
+  const targets = await upsertCrawlTargets(targetList.map((candidate, index) => ({
+    ...candidate,
+    priority: index + 1,
+    source_type: "public_source",
+    depth: 0,
+    state: "queued",
+    discovered_by: `source:${candidate.sourceId}`,
+    archetype: "generic",
+    occurrences: 1,
+    productId,
+    productName,
+  })));
+
+  await job?.updateProgress({ stage: "crawl", detail: `Found ${targets.length} company domains; crawling up to ${config.crawlMaxCandidates}` });
+  const crawl = await crawlTargets(targets);
+  const processedTargets = targets.slice(0, config.crawlMaxCandidates);
+  const domains = new Set(processedTargets.map((target) => target.domain).filter(Boolean));
+
+  await job?.updateProgress({ stage: "extraction", detail: `Extracting and qualifying ${domains.size} company websites` });
+  const searchPlan = await generateSearchPlan(icp.ideal_customer || `${productName} ${icp.product_description || ""}`, icp);
+  const extraction = domains.size
+    ? await runExtraction({ searchPlan, domains, icp, runId: job?.id || null })
+    : { pagesProcessed: 0, companyRecords: 0, contactRecords: 0 };
+
+  await job?.updateProgress({ stage: "complete", detail: "Public source harvest finished" });
+  return {
+    productId,
+    productName,
+    sourcesProcessed: sources.length,
+    candidatesFound: targetList.length,
+    domainsCrawled: domains.size,
+    crawl,
+    extraction,
+    sourceErrors: Object.fromEntries(sourceErrors),
+  };
+}

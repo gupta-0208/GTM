@@ -277,6 +277,12 @@ export async function discover(
       allApproved,
     );
 
+  const searchEngines = allRawTargets.reduce((counts, target) => {
+    const engine = target.search_engine || "unknown";
+    counts[engine] = (counts[engine] || 0) + 1;
+    return counts;
+  }, {});
+
   // ────────────────────────────────────────────────────────────────────────
   // Summary
   // ────────────────────────────────────────────────────────────────────────
@@ -361,6 +367,7 @@ export async function discover(
 
       targetsReview:
         allReview.length,
+      searchEngines,
     },
   };
 }

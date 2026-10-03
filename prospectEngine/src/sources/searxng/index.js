@@ -33,7 +33,7 @@ function sleep(ms) {
 }
 
 function cacheKey(query, page) {
-  return `${query}::${page}`;
+  return `${query}::${page}::${config.searxngEngines.join(",")}`;
 }
 
 function isCacheFresh(entry) {
@@ -100,6 +100,7 @@ function makeTarget({
 
     title: result.title || "",
     snippet: result.content || "",
+    search_engine: result.engine || null,
 
     matchedQueries: [query],
 
@@ -150,26 +151,15 @@ export default {
         `[Discovery ${queryIndex + 1}/${uniqueQueries.length}]`
       );
 
-      for (
-        let page = 1;
-        page <= config.searchPagesPerQuery;
-        page++
-      ) {
+      for (let page = 1; page <= config.searchPagesPerQuery; page++) {
         const key = cacheKey(query, page);
-
         let results;
 
         if (isCacheFresh(cache[key])) {
-          console.log(
-            `Cache hit: "${query}" page ${page}`
-          );
-
+          console.log(`Cache hit: "${query}" page ${page}`);
           results = cache[key].results;
         } else {
-          console.log(
-            `SearXNG: "${query}" page ${page}`
-          );
-
+          console.log(`SearXNG: "${query}" page ${page}`);
           try {
             results = await searchChannel.run({
               query,
@@ -177,43 +167,28 @@ export default {
               language: "en",
               limit: config.searchResultsPerQuery,
             });
-
             await setSearchCache(key, {
               cachedAt: new Date().toISOString(),
               results,
             });
           } catch (error) {
-            console.error(
-              `Search failed: ${query}`
-            );
-
+            console.error(`Search failed: ${query}`);
             console.error(error.message);
-
             results = [];
           }
         }
 
-        for (
-          let resultIndex = 0;
-          resultIndex < results.length;
-          resultIndex++
-        ) {
+        for (let resultIndex = 0; resultIndex < results.length; resultIndex++) {
           const target = makeTarget({
             result: results[resultIndex],
             query,
             position: resultIndex + 1,
           });
-
-          if (target) {
-            candidates.push(target);
-          }
+          if (target) candidates.push(target);
         }
       }
 
-      if (
-        queryIndex <
-        uniqueQueries.length - 1
-      ) {
+      if (queryIndex < uniqueQueries.length - 1) {
         console.log(
           `Waiting ${
             config.searxngQueryDelayMs / 1000

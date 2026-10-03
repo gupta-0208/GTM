@@ -164,7 +164,7 @@ export async function extractPage(page, { provider, jina } = {}) {
 
 export async function parseAndPersist(
   page,
-  { provider, jina, version, searchPlan = null } = {}
+  { provider, jina, version, searchPlan = null, icp = null, runId = null } = {}
 ) {
   const result = await extractPage(page, { provider, jina });
 
@@ -175,6 +175,7 @@ export async function parseAndPersist(
     const qualification = qualifyCompany({
       profile: result.payload,
       searchPlan,
+      icp,
       domain: page.domain,
     });
 
@@ -193,6 +194,9 @@ export async function parseAndPersist(
       status: statusForConfidence(result.confidence),
       qualification_status: qualificationStatus,
       qualification_reasons: qualificationReasons,
+      run_id: runId,
+      product_id: icp?.id || null,
+      product_name: icp?.name || null,
     });
   }
 
@@ -287,6 +291,8 @@ export async function parseCompanyContacts({
   jina,
   version,
   pages: providedPages = null,
+  runId = null,
+  icp = null,
   limit = 200,
 } = {}) {
   const fetched =
@@ -331,6 +337,9 @@ export async function parseCompanyContacts({
       confidence: contact.confidence,
       page_id: contact.page_ids?.[0] ?? null,
       status: statusForConfidence(contact.confidence),
+      run_id: runId,
+      product_id: icp?.id || null,
+      product_name: icp?.name || null,
     });
 
     persisted.push(record);

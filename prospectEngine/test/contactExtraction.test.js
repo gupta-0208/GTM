@@ -29,6 +29,7 @@ import {
   normalizeContact,
   dedupeContacts,
 } from "../src/parse/contact.js";
+import { isPlausibleName } from "../src/lib/names.js";
 
 import {
   extractContactsFromPage,
@@ -116,6 +117,20 @@ const SPARSE_TEAM_HTML = `
 <html><head><title>Our Team</title></head><body>
 <h1>Our Team</h1>
 <p>We have a dedicated group of people who work hard every day.</p>
+</body></html>`;
+
+const PROSE_AS_CONTACT_HTML = `
+<html><head><title>About our team</title></head><body>
+<div class="team-member">
+  <h3>Our motto is to be a proactive</h3>
+  <span class="role">Collaborative and purpose-driven recruitment partner for our clients and candidates</span>
+  <a href="mailto:info@example.com">Contact</a>
+</div>
+<div class="team-member">
+  <h3>While we grow in numbers</h3>
+  <span class="role">Senior recruitment partner</span>
+  <a href="tel:+919876543210">Call</a>
+</div>
 </body></html>`;
 
 function fakeJina({ markdown = null } = {}) {
@@ -206,6 +221,27 @@ async function main() {
     assert.equal(contacts[0].phone, "+15551234567");
   });
 
+  await test("reject sentence fragments as people while accepting real names", () => {
+    for (const fragment of [
+      "Our motto is to be a proactive",
+      "While we grow in numbers",
+      "Collaborative and purpose-driven recruitment partner",
+    ]) {
+      assert.equal(isPlausibleName(fragment), false, fragment);
+    }
+
+    for (const name of ["Jane Doe", "Aarav Sharma", "Mary van Buren", "JANE DOE"]) {
+      assert.equal(isPlausibleName(name), true, name);
+    }
+
+    const contacts = deterministicContactExtract(
+      "team_page",
+      PROSE_AS_CONTACT_HTML,
+      "https://example.com/team",
+    );
+    assert.deepEqual(contacts, []);
+  });
+
   await test("leadership extraction -> technology_leader", () => {
     const contacts = deterministicContactExtract("team_page", LEADERSHIP_HTML, "https://acme.com/leadership");
     assert.equal(contacts[0].full_name, "John Smith");
@@ -265,6 +301,15 @@ async function main() {
     const nameOnly = normalizeContact({ full_name: "Jane Doe" });
     assert.ok(nameOnly.confidence < 0.6);
     assert.equal(statusForConfidence(nameOnly.confidence), "review");
+
+    const prose = normalizeContact({
+      full_name: "While we grow in numbers",
+      title: "Recruitment partner",
+      phone: "+919876543210",
+    });
+    assert.equal(prose.full_name, "");
+    assert.equal(prose.first_name, "");
+    assert.equal(prose.confidence, 0.35);
   });
 
   await test("duplicate contact handling (merge by email preserves sources)", () => {

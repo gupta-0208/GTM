@@ -330,7 +330,7 @@ export function deterministicContactExtract(archetype, html, url) {
   return dedupeContacts(
     candidates
       .map((c) => normalizeContact(c))
-      .filter((c) => isPlausibleName(c.full_name) || c.email || c.phone),
+      .filter((c) => isPlausibleName(c.full_name)),
   );
 }
 

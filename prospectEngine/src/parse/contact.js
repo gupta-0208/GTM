@@ -176,10 +176,13 @@ export function normalizeContact({
   page_id = null,
   evidence = [],
 }) {
-  const { first_name, last_name } = splitName(full_name);
+  const cleanName = isPlausibleName(full_name)
+    ? String(full_name || "").trim()
+    : "";
+  const { first_name, last_name } = splitName(cleanName);
 
   const contact = {
-    full_name: String(full_name || "").trim(),
+    full_name: cleanName,
     first_name,
     last_name,
     title: String(title || "").trim(),

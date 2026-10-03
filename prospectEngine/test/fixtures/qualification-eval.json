@@ -1,6 +1,6 @@
 [
   {
-    "name": "real operating manufacturer matching the query",
+    "name": "operating manufacturer outside the LinkAssist target business types",
     "searchPlan": {
       "target_description": "Indian solar manufacturers that use SAP",
       "industry": "solar",
@@ -17,7 +17,7 @@
         { "technology": "sap", "relationship": "uses", "evidence_ids": [], "explanation": "" }
       ]
     },
-    "expected": "qualified"
+    "expected": "review"
   },
   {
     "name": "directory / listicle site",

@@ -30,6 +30,8 @@ export async function runExtraction({
   version =
     config.currentParseVersion,
   searchPlan = null,
+  icp = null,
+  runId = null,
   domains = null,
   limit = 5000,
 } = {}) {
@@ -105,6 +107,8 @@ export async function runExtraction({
 
   const qualifiedDomains =
     new Set();
+  const contactCandidateDomains =
+    new Set();
 
   let companyRecords = 0;
 
@@ -125,6 +129,8 @@ export async function runExtraction({
           version,
 
           searchPlan,
+          icp,
+          runId,
         },
       );
 
@@ -143,6 +149,15 @@ export async function runExtraction({
           page.domain,
         );
       }
+
+      if (
+        result.qualificationStatus !==
+        "not_qualified"
+      ) {
+        contactCandidateDomains.add(
+          page.domain,
+        );
+      }
     }
   }
 
@@ -156,12 +171,7 @@ export async function runExtraction({
     const domain of
       pagesByDomain.keys()
   ) {
-    if (
-      gateDeepCrawl &&
-      !qualifiedDomains.has(
-        domain,
-      )
-    ) {
+    if (gateDeepCrawl && !contactCandidateDomains.has(domain)) {
       continue;
     }
 
@@ -181,6 +191,8 @@ export async function runExtraction({
           pagesByDomain.get(
             domain,
           ),
+        runId,
+        icp,
       });
 
     contactRecords +=

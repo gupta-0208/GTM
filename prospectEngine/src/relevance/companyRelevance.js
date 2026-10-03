@@ -259,54 +259,22 @@ function buildPrompt(userQuery, searchPlan, domains) {
     .filter(Boolean)
     .join("; ");
 
-  return `You are a fact-extraction helper for LinkAssist prospect discovery.
+  return `You are a fact-extraction helper for product-agnostic prospect discovery.
 
 Your job is NOT to invent prospects.
 
 Your job is to classify each supplied domain using ONLY the supplied
 domain, title, and search snippet.
 
-LINKASSIST ICP
+ACTIVE PRODUCT ICP AND SEARCH PLAN
 
-Geography:
-- India
+Use only the product profile and search plan below to decide whether the
+company itself matches the requested prospect. Do not assume a country,
+industry, company size, buyer role, or business type unless it appears in
+the user query or search plan.
 
-Target business types:
-- B2B SaaS
-- software companies
-- marketing agencies
-- AI agencies
-- consulting firms
-- business consultants
-- business coaches
-- professional services
-- IT/software services
-- recruitment/staffing agencies
-
-Preferred company profile:
-- founder-led or expert-led
-- small business, approximately 1-50 employees
-
-Likely buyer:
-- founder
-- CEO
-- consultant
-- coach
-- agency owner
-- senior B2B professional
-
-IMPORTANT:
-Founder-led and employee-count signals are supporting signals.
-Do NOT invent them when they are not visible.
-
-CORE RELEVANCE:
-For discovery approval, focus primarily on:
-1. Is this the company's own official website?
-2. Is the company itself in India?
-3. Is the company itself one of the requested B2B business types?
-
-Do NOT require the snippet to explicitly prove founder-led status or employee count.
-Those can be validated later during company extraction.
+The user query and search plan are the source of truth for this run. Treat
+preferred signals as supporting evidence when present; do not invent them.
 
 NON-COMPANY SOURCES TO REJECT:
 - directories
@@ -406,8 +374,8 @@ null:
 3. matches_search_plan
 
 Set true when the COMPANY ITSELF fits the core requested target:
-- India
-- relevant B2B business type from the LinkAssist ICP/query
+- the requested geography, if one is specified
+- the requested company type, industry, product, or relationship in the query/search plan
 
 Do NOT require founder-led or employee-count evidence here.
 
@@ -607,15 +575,9 @@ export function decideFromFacts(
     };
   }
 
-  // Partial approval path:
-  // The LLM is confident it is a real company website (is_company_website=true)
-  // but lacks sufficient snippet evidence to confirm ICP match
-  // (matches_search_plan=null).
-  //
-  // If the domain itself is on an Indian TLD (.in, .co.in, .org.in, .net.in)
-  // OR the evidence string contains an India location signal, we approve with
-  // a lower-confidence reason code rather than sending to limbo review.
-  // The crawler will do deeper verification during content extraction.
+  // Keep plausible official company sites in the crawl queue when the search
+  // snippet cannot confirm ICP fit. Company extraction applies the active ICP
+  // to the site's own content before qualifying the record.
   if (
     (facts.type === "company" ||
       facts.type === "company_profile") &&
@@ -628,7 +590,7 @@ export function decideFromFacts(
       type: facts.type,
       reason_code:
         facts.reason_code ||
-        "probable_india_company",
+        "company_needs_profile_verification",
       evidence: facts.evidence || "",
       provider: providerName,
       model,

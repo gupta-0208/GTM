@@ -96,8 +96,7 @@ async function checkOpenai() {
 }
 
 async function checkSearxng() {
-  // SearXNG is exercised during discovery; it is not treated as a fatal
-  // readiness dependency here.
+  // SearXNG is exercised during discovery and is not a fatal readiness dependency.
   return {
     name: "searxng",
     ok: true,

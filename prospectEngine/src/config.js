@@ -35,7 +35,7 @@ function booleanEnv(name, fallback = false) {
 export const config = {
   userQuery:
     process.env.USER_QUERY ||
-    "Find Indian companies in the solar industry that use SAP",
+    "Find India-based founders, consultants, coaches, and agency owners at B2B service businesses who use LinkedIn to build authority and attract clients",
 
   geminiApiKey: process.env.GEMINI_API_KEY || "",
 
@@ -43,10 +43,13 @@ export const config = {
     process.env.GEMINI_MODEL || "gemini-3.8-flash",
 
   searxngUrl:
-    (
-      process.env.SEARXNG_URL ||
-      "http://127.0.0.1:8888"
-    ).replace(/\/+$/, ""),
+    (process.env.SEARXNG_URL || "http://127.0.0.1:8888").replace(/\/+$/, ""),
+
+  searxngEngines:
+    (process.env.SEARXNG_ENGINES || "google")
+      .split(",")
+      .map((engine) => engine.trim())
+      .filter(Boolean),
 
   searchResultsPerQuery:
     numberEnv("SEARCH_RESULTS_PER_QUERY", 10),
@@ -64,7 +67,6 @@ export const config = {
     numberEnv("SEARXNG_CACHE_TTL_DAYS", 30),
 
   // When true every SearXNG call goes live and bypasses the local cache.
-  // Set SEARXNG_BYPASS_CACHE=true for a fresh demo run.
   searxngBypassCache:
     booleanEnv("SEARXNG_BYPASS_CACHE", false),
 
@@ -129,9 +131,10 @@ export const config = {
     numberEnv("CRAWL_RETRY_BACKOFF_MAX_MS", 30000),
 
   crawlerUserAgent:
-    `BDA-Prospect-Engine/0.1 (+${required(
-      "CRAWLER_CONTACT_URL"
-    )})`,
+    `BDA-Prospect-Engine/0.1 (+${
+      process.env.CRAWLER_CONTACT_URL?.trim() ||
+      "https://example.com/contact"
+    })`,
 
   llmEnabled:
     booleanEnv("LLM_ENABLED", false),
@@ -347,4 +350,3 @@ export function validateConfig(cfg = config) {
     problems,
   };
 }
-
